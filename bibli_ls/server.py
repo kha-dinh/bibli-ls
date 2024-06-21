@@ -1,7 +1,7 @@
 import logging
 import os.path
 from pathlib import Path
-from typing import Any, List, Optional, Union
+from typing import Any
 
 import bibtexparser
 from lsprotocol import types
@@ -85,7 +85,7 @@ def hover(self, params: types.HoverParams):
                 if content["url"] is not None:
                     content["url"] = f"<{content['url']}>"
 
-                    table_content = [{"Key": k, "Value": v} for k, v in content.items()]
+                table_content = [{"Key": k, "Value": v} for k, v in content.items()]
                 # content['url']
                 table = (
                     markdown_table(table_content)
