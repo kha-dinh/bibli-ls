@@ -1,0 +1,5 @@
+.venv
+bibli_ls/__pycache__
+bibli_ls.egg-info
+build/lib/bibli_ls
+dist
