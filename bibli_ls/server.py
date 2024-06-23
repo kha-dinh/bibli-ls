@@ -189,7 +189,7 @@ class BibliLanguageServer(LanguageServer):
 
 SERVER = BibliLanguageServer(
     name="bibli-language-server",
-    version="0.0.1",
+    version="0.1.0",
     protocol_cls=BibliLanguageServerProtocol,
 )
 
