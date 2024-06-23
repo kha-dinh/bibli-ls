@@ -31,7 +31,7 @@ bibfiles = ["references.bib"] # Relative path to your bibliographies
 
 [hover]
 show_fields = ["abstract", "year", "booktitle"]
-format = "list" # Available formats: "markdown" and "list" (markdown-flavored list)
+format = "list" # Available formats: "markdown" (markdown table) and "list" (markdown list)
 
 [completion]
 cite_prefix = "@"
@@ -65,11 +65,3 @@ end
 
 lspconfig.bibli_ls.setup({})
 ```
-
-## Progress
-
-| Feature        | Status |
-| -------------- | ------ |
-| LSP Hover      | TODO   |
-| LSP Completion | WIP    |
-| User configs   | WIP    |
