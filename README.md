@@ -27,7 +27,7 @@ A [Language Server](https://microsoft.github.io/language-server-protocol/) that 
 Create a configuration file `.bibli.toml` at the root of your note directory. Here is a sample configurations:
 
 ```toml
-bibfiles = ["references.bib"] # Relative path to your bibliographies
+bibfiles = ["references.bib"] # Relative/Absolute path to your bibliographies
 
 [hover]
 show_fields = ["abstract", "year", "booktitle"]
