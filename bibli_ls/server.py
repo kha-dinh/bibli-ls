@@ -1,11 +1,11 @@
 import logging
 import os.path
 from pathlib import Path
-from typing import Any, Optional, Pattern
+from typing import Any, List, Optional, Pattern, Tuple
 
 import re
+from attr import dataclass
 import bibtexparser
-import tomllib
 from bibtexparser.bwriter import BibDatabase
 from lsprotocol.types import (
     INITIALIZE,
@@ -31,6 +31,7 @@ from lsprotocol.types import (
     Position,
     Range,
     SymbolKind,
+    TextEdit,
 )
 from py_markdown_table.markdown_table import markdown_table
 from pygls.protocol.language_server import LanguageServerProtocol, lsp_method
@@ -38,15 +39,81 @@ from pygls.server import LanguageServer
 from pygls.workspace import TextDocument
 
 
-class BibFile(bibtexparser.bibdatabase.BibDatabase):
-    def __init__(self):
-        self.path = Path()
-        super().__init__()
+# class BibFile(bibtexparser.bibdatabase.BibDatabase):
+#     def __init__(self):
+#         self.path = Path()
+#         super().__init__()
 
 
+@dataclass
+class BibliBibDatabase(BibDatabase):
+    path: Path
+
+
+global CONFIG
 LIBRARIES: dict[str, BibDatabase] = dict()
-CONFIG: Optional[dict] = None
 SYMBOLS_REGEX: Optional[Pattern] = None
+
+# CONFIG: Optional[dict] = None
+
+
+@dataclass
+class BibliConfig:
+    lsp: LanguageServerProtocol
+    params: InitializeParams
+    config_file: Optional[Path] = None
+    root_path: Optional[Path] = None
+    bibfiles: List[str] = []
+    show_fields: List[str] = []
+    cite_prefix: str = "@"
+    cite_format: str = "{}"
+
+    def __post_init__(self):
+        global LIBRARIES
+        import tomllib
+
+        self.find_configs_file()
+        if self.config_file:
+            with open(self.config_file, "r") as f:
+                config = tomllib.loads(f.read())
+                self.lsp.show_message(f"Loaded configs from {self.config_file}")
+                if (bibfiles := config.get("bibfiles")) is not None:
+                    for bibfile_path in bibfiles:
+                        if not os.path.isabs(bibfile_path) and self.params.root_path:
+                            bibfile_path = os.path.join(
+                                self.params.root_path, bibfile_path
+                            )
+
+                        with open(bibfile_path) as bibtex_file:
+                            library: BibDatabase = bibtexparser.load(bibtex_file)
+                            len = library.get_entry_list().__len__()
+                            self.lsp.show_message(
+                                f"loaded {len} entries from {bibfile_path}"
+                            )
+                            LIBRARIES[bibfile_path] = library
+
+                if config.get("cite_prefix"):
+                    self.cite_prefix = config["cite_prefix"]
+                # if config.get("cite_format"):
+                #     self.cite_format = config["cite_format"]
+                if config.get("show_fields"):
+                    self.show_fields = config["show_fields"]
+        else:
+            self.lsp.show_message("No config given\n")
+
+        if self.bibfiles == []:
+            self.try_find_bibfiles()
+
+    def try_find_bibfiles(self):
+        logging.error("Bibfiles not specified, trying to find them\n")
+
+    def find_configs_file(self):
+        # TODO: find in XDG config paths
+        if self.params.root_path:
+            self.config_file = Path(os.path.join(self.params.root_path, ".bibli.toml"))
+
+
+CONFIG: Optional[BibliConfig] = None
 
 
 class BibliLanguageServerProtocol(LanguageServerProtocol):
@@ -56,30 +123,11 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
 
     @lsp_method(INITIALIZE)
     def lsp_initialize(self, params: InitializeParams) -> InitializeResult:
-        logging.error(params.root_path)
+        global CONFIG
+        CONFIG = BibliConfig(self, params)
+        CONFIG.__post_init__()
+        # logging.error(CONFIG)
 
-        if params.root_path:
-            config_file = os.path.join(params.root_path, ".bibli.toml")
-            with open(config_file, "r") as f:
-                global CONFIG
-                global SYMBOLS_REGEX
-                global LIBRARIES
-
-                CONFIG = tomllib.loads(f.read())
-                logging.error("Loaded configs from " + config_file)
-
-                for bibfile in CONFIG["bibfiles"]:
-                    bibfile_path = os.path.join(params.root_path, bibfile)
-                    with open(bibfile_path) as bibtex_file:
-                        library: BibDatabase = bibtexparser.load(bibtex_file)
-                        len = library.get_entry_list().__len__()
-                        logging.error(f"loaded {len} entries from {bibfile_path}")
-                        # global_library.update(library.get_entry_dict())
-                        LIBRARIES[bibfile_path] = library
-
-                SYMBOLS_REGEX = re.compile(
-                    re.escape(CONFIG["cite_format"]).replace(r"\{\}", r"(\w+)")
-                )
         initialize_result: InitializeResult = super().lsp_initialize(params)
         return initialize_result
 
@@ -169,7 +217,18 @@ def hover(ls: LanguageServer, params: HoverParams):
             if content["url"] is not None:
                 content["url"] = f"<{content['url']}>"
 
-            table_content = [{"Key": k, "Value": v} for k, v in content.items()]
+            if CONFIG is None:
+                raise ValueError("CONFIG is None")
+
+            if CONFIG.show_fields != []:
+                table_content = [
+                    {"Key": k, "Value": v}
+                    for k, v in content.items()
+                    if CONFIG.show_fields.count(k) > 0
+                ]
+            else:
+                table_content = [{"Key": k, "Value": v} for k, v in content.items()]
+
             # content['url']
 
             table = (
@@ -177,7 +236,7 @@ def hover(ls: LanguageServer, params: HoverParams):
                 .set_params(
                     row_sep="markdown",
                     padding_weight="right",
-                    multiline={"Key": 20, "Value": 70},
+                    multiline=([{"Key": 20, "Value": 70}], None),
                     quote=False,
                 )
                 .get_markdown()
@@ -200,19 +259,64 @@ def hover(ls: LanguageServer, params: HoverParams):
 
 @SERVER.feature(
     TEXT_DOCUMENT_COMPLETION,
-    CompletionOptions(trigger_characters=[".", "'", '"'], resolve_provider=True),
+    # TODO: How to change trigger character based on config file?
+    CompletionOptions(
+        trigger_characters=[".", "'", '"', "@"],
+        # resolve_provider=True,
+    ),
 )
 def completion(
     server: BibliLanguageServer, params: CompletionParams
 ) -> Optional[CompletionList]:
     """Returns completion items."""
-    document = server.workspace.get_text_document(params.text_document.uri)
     completion_items = []
     for _path, library in LIBRARIES.items():
         for k, v in library.get_entry_dict().items():
+            if CONFIG is None:
+                raise ValueError("CONFIG is None")
+
+            key = CONFIG.cite_prefix + k
+            text_edits = []
+
+            # left = CONFIG.cite_format.find("{}")
+            # right = left + 2
+
+            # left_insert = CONFIG.cite_format[:left]
+            # right_insert = CONFIG.cite_format[right:]
+            #
+            # server.show_message(word)
+            # if word[0] == "@":
+            # text_edits.append(
+            #     TextEdit(
+            #         Range(
+            #             start=Position(
+            #                 params.position.line, params.position.character - 1
+            #             ),
+            #             end=Position(
+            #                 params.position.line, params.position.character - 1
+            #             ),
+            #         ),
+            #         left_insert,
+            #     )
+            # )
+            #
+            # text_edits.append(
+            #     TextEdit(
+            #         Range(
+            #             start=Position(
+            #                 params.position.line, params.position.character + len(key)
+            #             ),
+            #             end=Position(
+            #                 params.position.line, params.position.character + len(key)
+            #             ),
+            #         ),
+            #         right_insert,
+            #     )
+            # )
             completion_items.append(
                 CompletionItem(
-                    k,
+                    key,
+                    additional_text_edits=text_edits,
                     kind=CompletionItemKind.Field,
                     documentation=MarkupContent(
                         kind=MarkupKind.Markdown, value=f"# {v["title"]}\n"
