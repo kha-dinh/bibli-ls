@@ -1,3 +1,7 @@
+<h3 align="center">
+	<img src="https://raw.githubusercontent.com/kha-dinh/bibli-ls/main/docs/logo.jpeg" width="100" alt="Logo"/><br/>
+</h3>
+
 # Bibli Language Server
 
 A [Language Server](https://microsoft.github.io/language-server-protocol/) that brings bibliographies into your note-taking workflows.
