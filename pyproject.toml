@@ -9,7 +9,13 @@ authors = [{ name = "Kha Dinh", email = "dalo2903@gmail.com" }]
 description = "A simple LSP server for your bibliographies"
 readme = "README.md"
 requires-python = ">=3.8"
-dependencies = ["bibtexparser", "py_markdown_table", "pygls"]
+dependencies = [
+  "bibtexparser",
+  "py_markdown_table",
+  "pygls",
+  "tosholi",
+  "mdformat-gfm",
+]
 classifiers = [
   "Programming Language :: Python :: 3",
   "License :: OSI Approved :: MIT License",

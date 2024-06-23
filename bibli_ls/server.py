@@ -1,10 +1,11 @@
 import logging
 import os.path
 from pathlib import Path
-from typing import Any, List, Optional, Pattern, Tuple
+from typing import Any, Optional, Pattern
 
 import re
-from attr import dataclass
+
+from dataclasses import dataclass, field
 import bibtexparser
 from bibtexparser.bwriter import BibDatabase
 from lsprotocol.types import (
@@ -28,6 +29,7 @@ from lsprotocol.types import (
     InitializeResult,
     MarkupContent,
     MarkupKind,
+    MessageType,
     Position,
     Range,
     SymbolKind,
@@ -39,12 +41,6 @@ from pygls.server import LanguageServer
 from pygls.workspace import TextDocument
 
 
-# class BibFile(bibtexparser.bibdatabase.BibDatabase):
-#     def __init__(self):
-#         self.path = Path()
-#         super().__init__()
-
-
 @dataclass
 class BibliBibDatabase(BibDatabase):
     path: Path
@@ -54,60 +50,74 @@ global CONFIG
 LIBRARIES: dict[str, BibDatabase] = dict()
 SYMBOLS_REGEX: Optional[Pattern] = None
 
-# CONFIG: Optional[dict] = None
+DEFAULT_HOVER_FORMAT = ["# {title}", " ", "- _{author}_", "---"]
+DEFAULT_COMPLETION_DOC_FORMAT = ["# {title}", "_{author}_", "---"]
 
 
 @dataclass
+class HoverConfig:
+    format: str = "markdown"
+    show_fields: list[str] = field(default_factory=lambda: [])
+    character_limit: int = 400
+    format_string: list[str] = field(default_factory=lambda: DEFAULT_HOVER_FORMAT)
+
+
+@dataclass
+class CompletionConfig:
+    prefix: str = "@"
+
+
+@dataclass
+class BibliTomlConfig:
+    bibfiles: list[str] = field(default_factory=lambda: [])
+    hover: HoverConfig = field(default_factory=lambda: HoverConfig())
+    completion: CompletionConfig = field(default_factory=lambda: CompletionConfig())
+
+
 class BibliConfig:
     lsp: LanguageServerProtocol
     params: InitializeParams
+    toml_config: BibliTomlConfig = BibliTomlConfig()
     config_file: Optional[Path] = None
-    root_path: Optional[Path] = None
-    bibfiles: List[str] = []
-    show_fields: List[str] = []
-    cite_prefix: str = "@"
-    cite_format: str = "{}"
+    # cite_format: str = "{}"
 
-    def __post_init__(self):
+    def __init__(self, lsp: LanguageServerProtocol, params: InitializeParams) -> None:
         global LIBRARIES
-        import tomllib
+        import tosholi
 
-        self.find_configs_file()
+        self.lsp = lsp
+        self.params = params
+
+        self.try_find_configs_file()
+
         if self.config_file:
-            with open(self.config_file, "r") as f:
-                config = tomllib.loads(f.read())
+            with open(self.config_file, "rb") as f:
+                self.toml_config = tosholi.load(BibliTomlConfig, f)
                 self.lsp.show_message(f"Loaded configs from {self.config_file}")
-                if (bibfiles := config.get("bibfiles")) is not None:
-                    for bibfile_path in bibfiles:
-                        if not os.path.isabs(bibfile_path) and self.params.root_path:
-                            bibfile_path = os.path.join(
-                                self.params.root_path, bibfile_path
-                            )
-
-                        with open(bibfile_path) as bibtex_file:
-                            library: BibDatabase = bibtexparser.load(bibtex_file)
-                            len = library.get_entry_list().__len__()
-                            self.lsp.show_message(
-                                f"loaded {len} entries from {bibfile_path}"
-                            )
-                            LIBRARIES[bibfile_path] = library
-
-                if config.get("cite_prefix"):
-                    self.cite_prefix = config["cite_prefix"]
-                # if config.get("cite_format"):
-                #     self.cite_format = config["cite_format"]
-                if config.get("show_fields"):
-                    self.show_fields = config["show_fields"]
         else:
-            self.lsp.show_message("No config given\n")
+            self.lsp.show_message("No config file found, using default settings\n")
 
-        if self.bibfiles == []:
+        if self.toml_config.bibfiles == []:
             self.try_find_bibfiles()
 
-    def try_find_bibfiles(self):
-        logging.error("Bibfiles not specified, trying to find them\n")
+        if self.toml_config.bibfiles == []:
+            self.lsp.show_message("No bibfile found.", MessageType.Warning)
+            return
 
-    def find_configs_file(self):
+        for bibfile_path in self.toml_config.bibfiles:
+            if not os.path.isabs(bibfile_path) and self.params.root_path:
+                bibfile_path = os.path.join(self.params.root_path, bibfile_path)
+
+            with open(bibfile_path) as bibtex_file:
+                library: BibDatabase = bibtexparser.load(bibtex_file)
+                len = library.get_entry_list().__len__()
+                self.lsp.show_message(f"loaded {len} entries from {bibfile_path}")
+                LIBRARIES[bibfile_path] = library
+
+    def try_find_bibfiles(self):
+        pass
+
+    def try_find_configs_file(self):
         # TODO: find in XDG config paths
         if self.params.root_path:
             self.config_file = Path(os.path.join(self.params.root_path, ".bibli.toml"))
@@ -125,8 +135,6 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
     def lsp_initialize(self, params: InitializeParams) -> InitializeResult:
         global CONFIG
         CONFIG = BibliConfig(self, params)
-        CONFIG.__post_init__()
-        # logging.error(CONFIG)
 
         initialize_result: InitializeResult = super().lsp_initialize(params)
         return initialize_result
@@ -140,15 +148,12 @@ class BibliLanguageServer(LanguageServer):
     """
 
     # initialization_options: InitializationOptions
-    # project: Optional[Project]
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         self.index = {}
         super().__init__(*args, **kwargs)
 
     def parse(self, doc: TextDocument):
-        # typedefs = {}
-        # funcs = {}
         cites = {}
 
         for linum, line in enumerate(doc.lines):
@@ -189,8 +194,28 @@ SERVER = BibliLanguageServer(
 )
 
 
+def process_bib_entry(entry: dict, config: BibliTomlConfig):
+    replace_list = ["{{", "}}", "\\vphantom", "\\{", "\\}"]
+    for k, v in entry.items():
+        if isinstance(v, str):
+            for r in replace_list:
+                v = v.replace(r, "")
+
+            v = v.replace(" \n", " ")
+            v = v.replace("\n", " ")
+            if len(v) > config.hover.character_limit:
+                v = v[: config.hover.character_limit] + "..."
+            entry[k] = v
+
+        if k == "url":
+            entry[k] = f"<{v}>"
+
+
 @SERVER.feature(TEXT_DOCUMENT_HOVER)
 def hover(ls: LanguageServer, params: HoverParams):
+    import copy
+    import mdformat
+
     pos = params.position
     document_uri = params.text_document.uri
     document = ls.workspace.get_text_document(document_uri)
@@ -200,54 +225,52 @@ def hover(ls: LanguageServer, params: HoverParams):
     except IndexError:
         return None
 
-    for _path, library in LIBRARIES.items():
-        entry = library.get_entry_dict().get(word)
+    if CONFIG is None:
+        raise ValueError("CONFIG is None")
+
+    # TODO: make our own data structure for libraries and bib entries
+    for _, library in LIBRARIES.items():
+        entry = copy.deepcopy(library.get_entry_dict().get(word))
         if entry:
-            hover_content = [
-                " ",
-                f"# {entry['title']}",
-                " ",
-                f"- _{entry['author']}_",
-                " ",
+            process_bib_entry(entry, CONFIG.toml_config)
+
+            hover_text = [
+                f.format(**entry) for f in CONFIG.toml_config.hover.format_string
             ]
-            filter = []
-            # filter = ["title", "author", "ID"]
-            content = {k: v for k, v in entry.items() if filter.count(k) == 0}
 
-            if content["url"] is not None:
-                content["url"] = f"<{content['url']}>"
+            hover_content = {
+                k: v
+                for k, v in entry.items()
+                if CONFIG.toml_config.hover.show_fields == []
+                or CONFIG.toml_config.hover.show_fields.count(k) > 0
+            }
 
-            if CONFIG is None:
-                raise ValueError("CONFIG is None")
+            match CONFIG.toml_config.hover.format:
+                case "markdown":
+                    table_content = [
+                        {"Key": k, "Value": v} for k, v in hover_content.items()
+                    ]
+                    table = (
+                        markdown_table(table_content)
+                        .set_params(
+                            row_sep="markdown",
+                            padding_weight="right",
+                            multiline={"Key": 20, "Value": 70},
+                            quote=False,
+                        )
+                        .get_markdown()
+                    )
+                    hover_text.append(table)
+                case "list":
+                    for k, v in hover_content.items():
+                        hover_text.append(f"- __{k}__: {v}")
 
-            if CONFIG.show_fields != []:
-                table_content = [
-                    {"Key": k, "Value": v}
-                    for k, v in content.items()
-                    if CONFIG.show_fields.count(k) > 0
-                ]
-            else:
-                table_content = [{"Key": k, "Value": v} for k, v in content.items()]
-
-            # content['url']
-
-            table = (
-                markdown_table(table_content)
-                .set_params(
-                    row_sep="markdown",
-                    padding_weight="right",
-                    multiline=([{"Key": 20, "Value": 70}], None),
-                    quote=False,
-                )
-                .get_markdown()
-            )
-            hover_content.append(table)
             # hover_content.append("")
 
             return Hover(
                 contents=MarkupContent(
                     kind=MarkupKind.Markdown,
-                    value="\n".join(hover_content),
+                    value=mdformat.text("\n".join(hover_text), options={"wrap": 80}),
                 ),
                 range=Range(
                     start=Position(line=pos.line, character=0),
@@ -275,7 +298,7 @@ def completion(
             if CONFIG is None:
                 raise ValueError("CONFIG is None")
 
-            key = CONFIG.cite_prefix + k
+            key = CONFIG.toml_config.completion.prefix + k
             text_edits = []
 
             # left = CONFIG.cite_format.find("{}")
