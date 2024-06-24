@@ -149,6 +149,14 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
         CONFIG = BibliConfig(self, params)
 
         initialize_result: InitializeResult = super().lsp_initialize(params)
+
+        # Register additional trigger characters
+        completion_provider = initialize_result.capabilities.completion_provider
+        if completion_provider:
+            if completion_provider.trigger_characters:
+                completion_provider.trigger_characters.append(
+                    CONFIG.toml_config.completion.prefix
+                )
         return initialize_result
 
 
@@ -226,6 +234,7 @@ def process_bib_entry(entry: dict, config: BibliTomlConfig):
 @SERVER.feature(TEXT_DOCUMENT_HOVER)
 def hover(ls: LanguageServer, params: HoverParams):
     import copy
+
     import mdformat
 
     pos = params.position
@@ -296,7 +305,7 @@ def hover(ls: LanguageServer, params: HoverParams):
     TEXT_DOCUMENT_COMPLETION,
     # TODO: How to change trigger character based on config file?
     CompletionOptions(
-        trigger_characters=[".", "'", '"', "@"],
+        trigger_characters=["[", "<", "{"],
         # resolve_provider=True,
     ),
 )
