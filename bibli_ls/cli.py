@@ -2,14 +2,8 @@ import argparse
 import logging
 import sys
 
-# from . import __version__
-
+from . import __version__
 from .server import SERVER
-
-
-# def get_version() -> str:
-#     """Get the program version."""
-#     return __version__
 
 
 def cli() -> None:
@@ -76,7 +70,7 @@ Notes:
     )
     args = parser.parse_args()
     if args.version:
-        # print(get_version())
+        print(__version__)
         sys.exit(0)
 
     if args.tcp and args.ws:

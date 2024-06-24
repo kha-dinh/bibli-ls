@@ -40,6 +40,7 @@ from pygls.protocol.language_server import LanguageServerProtocol, lsp_method
 from pygls.server import LanguageServer
 from pygls.workspace import TextDocument
 
+from . import __version__
 
 # @dataclass
 # class BibliBibDatabase(BibDatabase):
@@ -208,7 +209,7 @@ class BibliLanguageServer(LanguageServer):
 
 SERVER = BibliLanguageServer(
     name="bibli-language-server",
-    version="0.1.0",
+    version=__version__,
     protocol_cls=BibliLanguageServerProtocol,
 )
 
