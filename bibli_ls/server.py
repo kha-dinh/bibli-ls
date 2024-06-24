@@ -17,6 +17,7 @@ from lsprotocol.types import (
     TEXT_DOCUMENT_DID_OPEN,
     TEXT_DOCUMENT_DOCUMENT_SYMBOL,
     TEXT_DOCUMENT_HOVER,
+    TEXT_DOCUMENT_REFERENCES,
     CompletionItem,
     CompletionItemKind,
     CompletionList,
@@ -30,11 +31,13 @@ from lsprotocol.types import (
     HoverParams,
     InitializeParams,
     InitializeResult,
+    Location,
     MarkupContent,
     MarkupKind,
     MessageType,
     Position,
     Range,
+    ReferenceParams,
     ShowDocumentParams,
     SymbolKind,
     TextEdit,
@@ -227,6 +230,53 @@ SERVER = BibliLanguageServer(
     version=__version__,
     protocol_cls=BibliLanguageServerProtocol,
 )
+
+
+@SERVER.feature(TEXT_DOCUMENT_REFERENCES)
+def find_references(ls: BibliLanguageServer, params: ReferenceParams):
+    from ripgrepy import Ripgrepy
+
+    """Find references of an object."""
+    doc = ls.workspace.get_text_document(params.text_document.uri)
+    word = doc.word_at_position(params.position)
+
+    # exist = False
+    # for lib in LIBRARIES:
+    #     if lib.library.entries_dict.__contains__(word):
+    #         exist = True
+    #         break
+    # if not exist:
+    #     return
+
+    config = get_config()
+    pattern = config.toml_config.completion.prefix + word
+
+    if not config.params.root_path:
+        return
+
+    rg = Ripgrepy(pattern, config.params.root_path)
+    result = rg.with_filename().json().run().as_dict
+    references = []
+
+    for res in result:
+        if res["type"] == "match":
+            # for submatch in res["data"]["submatches"]:
+            submatch = res["data"]["submatches"][0]
+            file_uri = "file://" + res["data"]["path"]["text"]
+            line_no = res["data"]["line_number"]
+            references.append(
+                Location(
+                    uri=file_uri,
+                    range=Range(
+                        start=Position(line=line_no - 1, character=submatch["start"]),
+                        end=Position(line=line_no - 1, character=submatch["end"]),
+                    ),
+                )
+            )
+
+    ls.show_message(str(references))
+
+    return references
 
 
 @SERVER.feature(TEXT_DOCUMENT_DEFINITION)
