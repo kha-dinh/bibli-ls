@@ -93,13 +93,14 @@ class BibliConfig:
                 if time.time_ns() - self.last_event < 10**9:
                     return
 
-                if not event.is_directory and CONFIG is not None:
-                    for file in CONFIG.toml_config.bibfiles:
+                if not event.is_directory:
+                    config = get_config()
+                    for file in config.toml_config.bibfiles:
                         if event.src_path == os.path.abspath(file):
-                            CONFIG.lsp.show_message(
+                            config.lsp.show_message(
                                 f"Bibfile {event.src_path} modified"
                             )
-                            CONFIG.parse_bibfiles()
+                            config.parse_bibfiles()
                             self.last_event = time.time_ns()
 
         self.observer.schedule(
@@ -281,6 +282,14 @@ def process_bib_entry(entry: Entry, config: BibliTomlConfig):
             entry.set_field(Field(f.key, f.value))
 
 
+def get_config() -> BibliConfig:
+    global CONFIG
+    if not CONFIG:
+        raise ValueError("CONFIG is None")
+
+    return CONFIG
+
+
 @SERVER.feature(TEXT_DOCUMENT_HOVER)
 def hover(ls: LanguageServer, params: HoverParams):
     import mdformat
@@ -294,27 +303,26 @@ def hover(ls: LanguageServer, params: HoverParams):
     except IndexError:
         return None
 
-    if CONFIG is None:
-        raise ValueError("CONFIG is None")
+    config = get_config()
 
     for library in LIBRARIES:
         entry = library.library.entries_dict.get(word)
         if entry:
-            process_bib_entry(entry, CONFIG.toml_config)
+            process_bib_entry(entry, config.toml_config)
 
             hover_text = [
                 f.format(**{f.key: f.value for f in entry.fields})
-                for f in CONFIG.toml_config.hover.format_string
+                for f in config.toml_config.hover.format_string
             ]
 
             hover_content = {
                 k: v
                 for k, v in entry.items()
-                if CONFIG.toml_config.hover.show_fields == []
-                or CONFIG.toml_config.hover.show_fields.count(k) > 0
+                if config.toml_config.hover.show_fields == []
+                or config.toml_config.hover.show_fields.count(k) > 0
             }
 
-            match CONFIG.toml_config.hover.format:
+            match config.toml_config.hover.format:
                 case "markdown":
                     table_content = [
                         {"Key": k, "Value": v} for k, v in hover_content.items()
@@ -364,10 +372,9 @@ def completion(
     completion_items = []
     for library in LIBRARIES:
         for k, v in library.library.entries_dict.items():
-            if CONFIG is None:
-                raise ValueError("CONFIG is None")
+            config = get_config()
 
-            key = CONFIG.toml_config.completion.prefix + k
+            key = config.toml_config.completion.prefix + k
             text_edits = []
 
             # left = CONFIG.cite_format.find("{}")
