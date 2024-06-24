@@ -59,28 +59,57 @@ class BibliConfig:
     # cite_format: str = "{}"
 
     def __init__(self, lsp: LanguageServerProtocol, params: InitializeParams) -> None:
+        from watchdog.observers import Observer
+
         global LIBRARIES
-        import tosholi
 
         self.lsp = lsp
         self.params = params
+        self.observer = Observer()
 
-        self.try_find_configs_file()
+        self.try_load_configs_file()
+        self.try_find_bibfiles()
+        self.parse_bibfiles()
 
-        if self.config_file:
-            with open(self.config_file, "rb") as f:
-                self.toml_config = tosholi.load(BibliTomlConfig, f)
-                self.lsp.show_message(f"Loaded configs from {self.config_file}")
-        else:
-            self.lsp.show_message("No config file found, using default settings\n")
+        self.schedule_file_watcher()
 
+    def schedule_file_watcher(self):
+        from watchdog.events import FileSystemEvent, FileSystemEventHandler
+
+        class BibfileChangedHandler(FileSystemEventHandler):
+            last_event = 0
+
+            def on_modified(self, event: FileSystemEvent) -> None:
+                import time
+
+                # Avoid too many events
+                if time.time_ns() - self.last_event < 10**9:
+                    return
+
+                if not event.is_directory and CONFIG is not None:
+                    for file in CONFIG.toml_config.bibfiles:
+                        if event.src_path == os.path.abspath(file):
+                            CONFIG.lsp.show_message(
+                                f"Bibfile {event.src_path} modified"
+                            )
+                            CONFIG.parse_bibfiles()
+                            self.last_event = time.time_ns()
+
+        self.observer.schedule(
+            event_handler=BibfileChangedHandler(),
+            path=self.params.root_path,
+            recursive=True,
+        )
+        self.observer.start()
+
+    def try_find_bibfiles(self):
         if self.toml_config.bibfiles == []:
-            self.try_find_bibfiles()
+            pass
 
         if self.toml_config.bibfiles == []:
             self.lsp.show_message("No bibfile found.", MessageType.Warning)
-            return
 
+    def parse_bibfiles(self):
         for bibfile_path in self.toml_config.bibfiles:
             if not os.path.isabs(bibfile_path) and self.params.root_path:
                 bibfile_path = os.path.join(self.params.root_path, bibfile_path)
@@ -91,13 +120,19 @@ class BibliConfig:
                 self.lsp.show_message(f"loaded {len} entries from {bibfile_path}")
                 LIBRARIES[bibfile_path] = library
 
-    def try_find_bibfiles(self):
-        pass
+    def try_load_configs_file(self):
+        import tosholi
 
-    def try_find_configs_file(self):
         # TODO: find in XDG config paths
         if self.params.root_path:
             self.config_file = Path(os.path.join(self.params.root_path, ".bibli.toml"))
+
+        if self.config_file:
+            with open(self.config_file, "rb") as f:
+                self.toml_config = tosholi.load(BibliTomlConfig, f)
+                self.lsp.show_message(f"Loaded configs from {self.config_file}")
+        else:
+            self.lsp.show_message("No config file found, using default settings\n")
 
 
 CONFIG: Optional[BibliConfig] = None
