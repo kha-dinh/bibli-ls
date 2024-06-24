@@ -1,9 +1,9 @@
 import logging
 import os.path
+import re
 from pathlib import Path
 from typing import Any, Optional, Pattern
 
-import re
 from .bibli_config import BibliTomlConfig
 
 import bibtexparser
@@ -15,13 +15,13 @@ from lsprotocol.types import (
     TEXT_DOCUMENT_DID_OPEN,
     TEXT_DOCUMENT_DOCUMENT_SYMBOL,
     TEXT_DOCUMENT_HOVER,
-    CompletionOptions,
-    CompletionParams,
     CompletionItem,
     CompletionItemKind,
     CompletionList,
-    DocumentSymbol,
+    CompletionOptions,
+    CompletionParams,
     DidOpenTextDocumentParams,
+    DocumentSymbol,
     DocumentSymbolParams,
     Hover,
     HoverParams,
@@ -56,7 +56,6 @@ class BibliConfig:
     params: InitializeParams
     toml_config: BibliTomlConfig = BibliTomlConfig()
     config_file: Optional[Path] = None
-    # cite_format: str = "{}"
 
     def __init__(self, lsp: LanguageServerProtocol, params: InitializeParams) -> None:
         from watchdog.observers import Observer
@@ -174,26 +173,26 @@ class BibliLanguageServer(LanguageServer):
         super().__init__(*args, **kwargs)
 
     def parse(self, doc: TextDocument):
-        cites = {}
-
-        for linum, line in enumerate(doc.lines):
-            if SYMBOLS_REGEX is not None:
-                if (match := SYMBOLS_REGEX.match(line)) is not None:
-                    name = match.group(1)
-
-                    logging.error("Match " + name + "\n")
-                    start_char = match.start() + line.find(name)
-
-                    cites[name] = dict(
-                        range_=Range(
-                            start=Position(line=linum, character=start_char),
-                            end=Position(line=linum, character=start_char + len(name)),
-                        ),
-                    )
-
-        self.index[doc.uri] = {
-            "cites": cites,
-        }
+        pass
+        # cites = {}
+        # for linum, line in enumerate(doc.lines):
+        #     if SYMBOLS_REGEX is not None:
+        #         if (match := SYMBOLS_REGEX.match(line)) is not None:
+        #             name = match.group(1)
+        #
+        #             logging.error("Match " + name + "\n")
+        #             start_char = match.start() + line.find(name)
+        #
+        #             cites[name] = dict(
+        #                 range_=Range(
+        #                     start=Position(line=linum, character=start_char),
+        #                     end=Position(line=linum, character=start_char + len(name)),
+        #                 ),
+        #             )
+        #
+        # self.index[doc.uri] = {
+        #     "cites": cites,
+        # }
         #     if (match := TYPE.match(line)) is not None:
         #         self.parse_typedef(typedefs, linum, line, match)
         #
@@ -221,7 +220,6 @@ def process_bib_entry(entry: dict, config: BibliTomlConfig):
             for r in replace_list:
                 v = v.replace(r, "")
 
-            v = v.replace(" \n", " ")
             v = v.replace("\n", " ")
             if len(v) > config.hover.character_limit:
                 v = v[: config.hover.character_limit] + "..."
