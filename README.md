@@ -12,17 +12,15 @@ A [Language Server](https://microsoft.github.io/language-server-protocol/) that 
 
 ## Current features
 
-- Configuration file (see [Configuration](#configuration)).
-- Autocompletion based on citation key.
-- LSP hover shows selected fields from your bibliography files.
+- Per-project configuration file (see [Configuration](#configuration)).
+- LSP capabilities
+	- Auto-completion 
+	- Goto definition
+	- LSP hover shows selected fields from your bibliography files.
 
 ### Planned Features
 
 - Universal: Works with any note format
-- Configurable: Per-workspace configuration files
-- Rich LSP features:
-  - Auto-completion & hint
-  - Goto definition
 - Per-document bibliographies
 - Telescope integration
 
@@ -51,7 +49,7 @@ pip install bibli-ls
 
 ### Neovim
 
-Automatic configuration through [lspconfig]() is not supported yet. Put the following code in your Neovim config to enable bibli-ls.
+Automatic configuration through [lspconfig]() is not supported yet. To enable bibli-ls, put the following code in your Neovim config.
 
 ```lua
 local lspconfig = require("lspconfig")
