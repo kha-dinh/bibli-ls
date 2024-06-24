@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bibli_ls"
-version = "0.1.1"
+version = "0.1.1a"
 authors = [{ name = "Kha Dinh", email = "dalo2903@gmail.com" }]
 description = "A simple LSP server for your bibliographies"
 readme = "README.md"
