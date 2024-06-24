@@ -55,7 +55,6 @@ class BibliBibDatabase:
     path: str
 
 
-global CONFIG
 LIBRARIES: list[BibliBibDatabase] = []
 SYMBOLS_REGEX: Optional[Pattern] = None
 
