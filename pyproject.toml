@@ -10,7 +10,7 @@ description = "A simple LSP server for your bibliographies"
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
-  "bibtexparser",
+  "bibtexparser==2.0.0b4",
   "watchdog",
   "py_markdown_table",
   "pygls",

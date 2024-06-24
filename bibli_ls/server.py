@@ -1,16 +1,18 @@
 import logging
 import os.path
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional, Pattern
 
-from .bibli_config import BibliTomlConfig
-
 import bibtexparser
-from bibtexparser.bwriter import BibDatabase
+from bibtexparser import Library
+from bibtexparser.model import Entry
+from bibtexparser.splitter import Field
 from lsprotocol.types import (
     INITIALIZE,
     TEXT_DOCUMENT_COMPLETION,
+    TEXT_DOCUMENT_DEFINITION,
     TEXT_DOCUMENT_DID_CHANGE,
     TEXT_DOCUMENT_DID_OPEN,
     TEXT_DOCUMENT_DOCUMENT_SYMBOL,
@@ -20,6 +22,7 @@ from lsprotocol.types import (
     CompletionList,
     CompletionOptions,
     CompletionParams,
+    DefinitionParams,
     DidOpenTextDocumentParams,
     DocumentSymbol,
     DocumentSymbolParams,
@@ -32,8 +35,10 @@ from lsprotocol.types import (
     MessageType,
     Position,
     Range,
+    ShowDocumentParams,
     SymbolKind,
     TextEdit,
+    TypeDefinitionParams,
 )
 from py_markdown_table.markdown_table import markdown_table
 from pygls.protocol.language_server import LanguageServerProtocol, lsp_method
@@ -41,14 +46,17 @@ from pygls.server import LanguageServer
 from pygls.workspace import TextDocument
 
 from . import __version__
+from .bibli_config import BibliTomlConfig
 
-# @dataclass
-# class BibliBibDatabase(BibDatabase):
-#     path: Path
+
+@dataclass
+class BibliBibDatabase:
+    library: Library
+    path: str
 
 
 global CONFIG
-LIBRARIES: dict[str, BibDatabase] = dict()
+LIBRARIES: list[BibliBibDatabase] = []
 SYMBOLS_REGEX: Optional[Pattern] = None
 
 
@@ -110,15 +118,21 @@ class BibliConfig:
             self.lsp.show_message("No bibfile found.", MessageType.Warning)
 
     def parse_bibfiles(self):
+        global LIBRARIES
         for bibfile_path in self.toml_config.bibfiles:
             if not os.path.isabs(bibfile_path) and self.params.root_path:
                 bibfile_path = os.path.join(self.params.root_path, bibfile_path)
 
-            with open(bibfile_path) as bibtex_file:
-                library: BibDatabase = bibtexparser.load(bibtex_file)
-                len = library.get_entry_list().__len__()
+            with open(bibfile_path, "r") as bibtex_file:
+                library: Library = bibtexparser.parse_string(bibtex_file.read())
+                len = library.entries.__len__()
                 self.lsp.show_message(f"loaded {len} entries from {bibfile_path}")
-                LIBRARIES[bibfile_path] = library
+                LIBRARIES.append(
+                    BibliBibDatabase(
+                        library,
+                        bibfile_path,
+                    )
+                )
 
     def try_load_configs_file(self):
         import tosholi
@@ -203,8 +217,9 @@ class BibliLanguageServer(LanguageServer):
         # self.index[doc.uri] = {
         #     "types": typedefs,
         #     "functions": funcs,
-        # }
-        # logging.info("Index: %s", self.index)
+
+    # }
+    # logging.info("Index: %s", self.index)
 
 
 SERVER = BibliLanguageServer(
@@ -214,26 +229,26 @@ SERVER = BibliLanguageServer(
 )
 
 
-def process_bib_entry(entry: dict, config: BibliTomlConfig):
+
+def process_bib_entry(entry: Entry, config: BibliTomlConfig):
     replace_list = ["{{", "}}", "\\vphantom", "\\{", "\\}"]
-    for k, v in entry.items():
-        if isinstance(v, str):
+    for f in entry.fields:
+        if isinstance(f.value, str):
             for r in replace_list:
-                v = v.replace(r, "")
+                f.value = f.value.replace(r, "")
 
-            v = v.replace("\n", " ")
-            if len(v) > config.hover.character_limit:
-                v = v[: config.hover.character_limit] + "..."
-            entry[k] = v
+            f.value = f.value.replace("\n", " ")
+            if len(f.value) > config.hover.character_limit:
+                f.value = f.value[: config.hover.character_limit] + "..."
 
-        if k == "url":
-            entry[k] = f"<{v}>"
+            if f.key == "url":
+                f.value = f"<{f.value}>"
+
+            entry.set_field(Field(f.key, f.value))
 
 
 @SERVER.feature(TEXT_DOCUMENT_HOVER)
 def hover(ls: LanguageServer, params: HoverParams):
-    import copy
-
     import mdformat
 
     pos = params.position
@@ -248,14 +263,14 @@ def hover(ls: LanguageServer, params: HoverParams):
     if CONFIG is None:
         raise ValueError("CONFIG is None")
 
-    # TODO: make our own data structure for libraries and bib entries
-    for _, library in LIBRARIES.items():
-        entry = copy.deepcopy(library.get_entry_dict().get(word))
+    for library in LIBRARIES:
+        entry = library.library.entries_dict.get(word)
         if entry:
             process_bib_entry(entry, CONFIG.toml_config)
 
             hover_text = [
-                f.format(**entry) for f in CONFIG.toml_config.hover.format_string
+                f.format(**{f.key: f.value for f in entry.fields})
+                for f in CONFIG.toml_config.hover.format_string
             ]
 
             hover_content = {
@@ -285,7 +300,7 @@ def hover(ls: LanguageServer, params: HoverParams):
                     for k, v in hover_content.items():
                         hover_text.append(f"- __{k}__: {v}")
 
-            # hover_content.append("")
+            # hover_text.append(str(entry))
 
             return Hover(
                 contents=MarkupContent(
@@ -313,8 +328,8 @@ def completion(
 ) -> Optional[CompletionList]:
     """Returns completion items."""
     completion_items = []
-    for _path, library in LIBRARIES.items():
-        for k, v in library.get_entry_dict().items():
+    for library in LIBRARIES:
+        for k, v in library.library.entries_dict.items():
             if CONFIG is None:
                 raise ValueError("CONFIG is None")
 
@@ -367,7 +382,6 @@ def completion(
                 )
             )
 
-    logging.error(completion_items)
     return (
         CompletionList(is_incomplete=False, items=completion_items)
         if completion_items
