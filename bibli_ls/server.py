@@ -229,6 +229,41 @@ SERVER = BibliLanguageServer(
 )
 
 
+@SERVER.feature(TEXT_DOCUMENT_DEFINITION)
+def goto_definition(ls: BibliLanguageServer, params: DefinitionParams):
+    """Jump to an object's type definition."""
+    doc = ls.workspace.get_text_document(params.text_document.uri)
+    # index = ls.index.get(doc.uri)
+    # if index is None:
+    #     return
+
+    word = doc.word_at_position(params.position)
+    for library in LIBRARIES:
+        entry: Entry | None = library.library.entries_dict.get(word)
+        if entry and entry.start_line:
+            ls.show_document(
+                ShowDocumentParams(
+                    f"file://{library.path}",
+                    selection=Range(
+                        start=Position(entry.start_line, 0),
+                        end=Position(entry.start_line, 0),
+                    ),
+                )
+            )
+
+    # for match in ARGUMENT.finditer(line):
+    #     if match.group("name") == word:
+    #         if (range_ := index["types"].get(match.group("type"), None)) is not None:
+    #             return types.Location(uri=doc.uri, range=range_)
+
+
+# @SERVER.feature(TEXT_DOCUMENT_DID_CHANGE)
+# def did_change(ls: BibliLanguageServer, params: DidOpenTextDocumentParams):
+#     """Parse each document when it is changed"""
+#     # doc = ls.workspace.get_text_document(params.text_document.uri)
+#     ls.show_message(f"{params.text_document.uri} changed")
+#     # ls.parse(doc)
+
 
 def process_bib_entry(entry: Entry, config: BibliTomlConfig):
     replace_list = ["{{", "}}", "\\vphantom", "\\{", "\\}"]
