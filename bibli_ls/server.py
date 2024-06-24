@@ -1,6 +1,5 @@
 import logging
 import os.path
-import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional, Pattern
@@ -13,9 +12,6 @@ from lsprotocol.types import (
     INITIALIZE,
     TEXT_DOCUMENT_COMPLETION,
     TEXT_DOCUMENT_DEFINITION,
-    TEXT_DOCUMENT_DID_CHANGE,
-    TEXT_DOCUMENT_DID_OPEN,
-    TEXT_DOCUMENT_DOCUMENT_SYMBOL,
     TEXT_DOCUMENT_HOVER,
     TEXT_DOCUMENT_REFERENCES,
     CompletionItem,
@@ -24,9 +20,6 @@ from lsprotocol.types import (
     CompletionOptions,
     CompletionParams,
     DefinitionParams,
-    DidOpenTextDocumentParams,
-    DocumentSymbol,
-    DocumentSymbolParams,
     Hover,
     HoverParams,
     InitializeParams,
@@ -39,9 +32,6 @@ from lsprotocol.types import (
     Range,
     ReferenceParams,
     ShowDocumentParams,
-    SymbolKind,
-    TextEdit,
-    TypeDefinitionParams,
 )
 from py_markdown_table.markdown_table import markdown_table
 from pygls.protocol.language_server import LanguageServerProtocol, lsp_method
@@ -190,40 +180,6 @@ class BibliLanguageServer(LanguageServer):
         self.index = {}
         super().__init__(*args, **kwargs)
 
-    def parse(self, doc: TextDocument):
-        pass
-        # cites = {}
-        # for linum, line in enumerate(doc.lines):
-        #     if SYMBOLS_REGEX is not None:
-        #         if (match := SYMBOLS_REGEX.match(line)) is not None:
-        #             name = match.group(1)
-        #
-        #             logging.error("Match " + name + "\n")
-        #             start_char = match.start() + line.find(name)
-        #
-        #             cites[name] = dict(
-        #                 range_=Range(
-        #                     start=Position(line=linum, character=start_char),
-        #                     end=Position(line=linum, character=start_char + len(name)),
-        #                 ),
-        #             )
-        #
-        # self.index[doc.uri] = {
-        #     "cites": cites,
-        # }
-        #     if (match := TYPE.match(line)) is not None:
-        #         self.parse_typedef(typedefs, linum, line, match)
-        #
-        #     elif (match := FUNCTION.match(line)) is not None:
-        #         self.parse_function(funcs, linum, line, match)
-        #
-        # self.index[doc.uri] = {
-        #     "types": typedefs,
-        #     "functions": funcs,
-
-    # }
-    # logging.info("Index: %s", self.index)
-
 
 SERVER = BibliLanguageServer(
     name="bibli-language-server",
@@ -240,6 +196,7 @@ def find_references(ls: BibliLanguageServer, params: ReferenceParams):
     doc = ls.workspace.get_text_document(params.text_document.uri)
     word = doc.word_at_position(params.position)
 
+    # TODO: do we need to check exist in library?
     # exist = False
     # for lib in LIBRARIES:
     #     if lib.library.entries_dict.__contains__(word):
@@ -269,12 +226,10 @@ def find_references(ls: BibliLanguageServer, params: ReferenceParams):
                     uri=file_uri,
                     range=Range(
                         start=Position(line=line_no - 1, character=submatch["start"]),
-                        end=Position(line=line_no - 1, character=submatch["end"]),
+                        end=Position(line=line_no - 1, character=submatch["end"] - 1),
                     ),
                 )
             )
-
-    ls.show_message(str(references))
 
     return references
 
@@ -283,9 +238,6 @@ def find_references(ls: BibliLanguageServer, params: ReferenceParams):
 def goto_definition(ls: BibliLanguageServer, params: DefinitionParams):
     """Jump to an object's type definition."""
     doc = ls.workspace.get_text_document(params.text_document.uri)
-    # index = ls.index.get(doc.uri)
-    # if index is None:
-    #     return
 
     word = doc.word_at_position(params.position)
     for library in LIBRARIES:
@@ -300,19 +252,6 @@ def goto_definition(ls: BibliLanguageServer, params: DefinitionParams):
                     ),
                 )
             )
-
-    # for match in ARGUMENT.finditer(line):
-    #     if match.group("name") == word:
-    #         if (range_ := index["types"].get(match.group("type"), None)) is not None:
-    #             return types.Location(uri=doc.uri, range=range_)
-
-
-# @SERVER.feature(TEXT_DOCUMENT_DID_CHANGE)
-# def did_change(ls: BibliLanguageServer, params: DidOpenTextDocumentParams):
-#     """Parse each document when it is changed"""
-#     # doc = ls.workspace.get_text_document(params.text_document.uri)
-#     ls.show_message(f"{params.text_document.uri} changed")
-#     # ls.parse(doc)
 
 
 def process_bib_entry(entry: Entry, config: BibliTomlConfig):
@@ -427,41 +366,6 @@ def completion(
             key = config.toml_config.completion.prefix + k
             text_edits = []
 
-            # left = CONFIG.cite_format.find("{}")
-            # right = left + 2
-
-            # left_insert = CONFIG.cite_format[:left]
-            # right_insert = CONFIG.cite_format[right:]
-            #
-            # server.show_message(word)
-            # if word[0] == "@":
-            # text_edits.append(
-            #     TextEdit(
-            #         Range(
-            #             start=Position(
-            #                 params.position.line, params.position.character - 1
-            #             ),
-            #             end=Position(
-            #                 params.position.line, params.position.character - 1
-            #             ),
-            #         ),
-            #         left_insert,
-            #     )
-            # )
-            #
-            # text_edits.append(
-            #     TextEdit(
-            #         Range(
-            #             start=Position(
-            #                 params.position.line, params.position.character + len(key)
-            #             ),
-            #             end=Position(
-            #                 params.position.line, params.position.character + len(key)
-            #             ),
-            #         ),
-            #         right_insert,
-            #     )
-            # )
             completion_items.append(
                 CompletionItem(
                     key,
