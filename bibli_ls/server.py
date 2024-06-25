@@ -1,4 +1,5 @@
 import logging
+import re
 import os.path
 from dataclasses import dataclass
 from pathlib import Path
@@ -193,18 +194,17 @@ def find_references(ls: BibliLanguageServer, params: ReferenceParams):
     """textDocument/references: Find references of an object through simple ripgrep."""
 
     from ripgrepy import Ripgrepy
-    import re
 
     config = get_config()
 
     if not config.params.root_path:
         return
 
-    re_start_word = re.compile(config.toml_config.completion.prefix + "[A-Za-z_0-9]*$")
-    doc = ls.workspace.get_text_document(params.text_document.uri)
-    try:
-        word = doc.word_at_position(params.position, re_start_word=re_start_word)
-    except IndexError:
+    document = ls.workspace.get_text_document(params.text_document.uri)
+    prefix = config.toml_config.completion.prefix
+    word = prefix_word_at_position(document, params.position, prefix)
+
+    if not word:
         return
 
     # TODO: do we need to check exist in library?
@@ -239,14 +239,34 @@ def find_references(ls: BibliLanguageServer, params: ReferenceParams):
     return references
 
 
+def prefix_word_at_position(
+    doc: TextDocument, position: Position, prefix: str
+) -> str | None:
+    re_start_word = re.compile(prefix + "[A-Za-z_0-9]*$")
+
+    try:
+        word = doc.word_at_position(position, re_start_word=re_start_word)
+    except IndexError:
+        word = None
+
+    return word
+
+
 @SERVER.feature(TEXT_DOCUMENT_DEFINITION)
 def goto_definition(ls: BibliLanguageServer, params: DefinitionParams):
     """textDocument/definition: Jump to an object's type definition."""
-    doc = ls.workspace.get_text_document(params.text_document.uri)
+    document = ls.workspace.get_text_document(params.text_document.uri)
 
-    word = doc.word_at_position(params.position)
+    config = get_config()
+
+    prefix = config.toml_config.completion.prefix
+    word = prefix_word_at_position(document, params.position, prefix)
+    if not word:
+        return
+
+    id = word.replace(prefix, "")
     for library in LIBRARIES:
-        entry: Entry | None = library.library.entries_dict.get(word)
+        entry: Entry | None = library.library.entries_dict.get(id)
         if entry and entry.start_line:
             ls.show_document(
                 ShowDocumentParams(
@@ -293,21 +313,23 @@ def hover(ls: LanguageServer, params: HoverParams):
     document_uri = params.text_document.uri
     document = ls.workspace.get_text_document(document_uri)
 
-    try:
-        word = document.word_at_position(pos)
-    except IndexError:
-        return None
-
     config = get_config()
 
+    prefix = config.toml_config.completion.prefix
+    word = prefix_word_at_position(document, params.position, prefix)
+    if not word:
+        return None
+
+    id = word.replace(prefix, "")
     for library in LIBRARIES:
-        entry = library.library.entries_dict.get(word)
+        entry = library.library.entries_dict.get(id)
         if entry:
             process_bib_entry(entry, config.toml_config)
 
+            format_dict = {f.key: f.value for f in entry.fields}
+            format_dict["entry_type"] = entry.entry_type.upper()
             hover_text = [
-                f.format(**{f.key: f.value for f in entry.fields})
-                for f in config.toml_config.hover.format_string
+                f.format(**format_dict) for f in config.toml_config.hover.format_string
             ]
 
             hover_content = {
@@ -337,12 +359,13 @@ def hover(ls: LanguageServer, params: HoverParams):
                     for k, v in hover_content.items():
                         hover_text.append(f"- __{k}__: {v}")
 
-            # hover_text.append(str(entry))
-
             return Hover(
                 contents=MarkupContent(
                     kind=MarkupKind.Markdown,
-                    value=mdformat.text("\n".join(hover_text), options={"wrap": 80}),
+                    value=mdformat.text(
+                        "\n".join(hover_text),
+                        options={"wrap": config.toml_config.hover.wrap},
+                    ),
                 ),
                 range=Range(
                     start=Position(line=pos.line, character=0),
