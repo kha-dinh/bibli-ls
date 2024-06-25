@@ -190,11 +190,22 @@ SERVER = BibliLanguageServer(
 
 @SERVER.feature(TEXT_DOCUMENT_REFERENCES)
 def find_references(ls: BibliLanguageServer, params: ReferenceParams):
-    from ripgrepy import Ripgrepy
+    """textDocument/references: Find references of an object through simple ripgrep."""
 
-    """Find references of an object."""
+    from ripgrepy import Ripgrepy
+    import re
+
+    config = get_config()
+
+    if not config.params.root_path:
+        return
+
+    re_start_word = re.compile(config.toml_config.completion.prefix + "[A-Za-z_0-9]*$")
     doc = ls.workspace.get_text_document(params.text_document.uri)
-    word = doc.word_at_position(params.position)
+    try:
+        word = doc.word_at_position(params.position, re_start_word=re_start_word)
+    except IndexError:
+        return
 
     # TODO: do we need to check exist in library?
     # exist = False
@@ -205,13 +216,7 @@ def find_references(ls: BibliLanguageServer, params: ReferenceParams):
     # if not exist:
     #     return
 
-    config = get_config()
-    pattern = config.toml_config.completion.prefix + word
-
-    if not config.params.root_path:
-        return
-
-    rg = Ripgrepy(pattern, config.params.root_path)
+    rg = Ripgrepy(word, config.params.root_path)
     result = rg.with_filename().json().run().as_dict
     references = []
 
@@ -236,7 +241,7 @@ def find_references(ls: BibliLanguageServer, params: ReferenceParams):
 
 @SERVER.feature(TEXT_DOCUMENT_DEFINITION)
 def goto_definition(ls: BibliLanguageServer, params: DefinitionParams):
-    """Jump to an object's type definition."""
+    """textDocument/definition: Jump to an object's type definition."""
     doc = ls.workspace.get_text_document(params.text_document.uri)
 
     word = doc.word_at_position(params.position)
@@ -281,6 +286,7 @@ def get_config() -> BibliConfig:
 
 @SERVER.feature(TEXT_DOCUMENT_HOVER)
 def hover(ls: LanguageServer, params: HoverParams):
+    """textDocument/hover: Display entry metadata."""
     import mdformat
 
     pos = params.position
@@ -357,7 +363,7 @@ def hover(ls: LanguageServer, params: HoverParams):
 def completion(
     server: BibliLanguageServer, params: CompletionParams
 ) -> Optional[CompletionList]:
-    """Returns completion items."""
+    """textDocument/completion: Returns completion items."""
     completion_items = []
     for library in LIBRARIES:
         for k, v in library.library.entries_dict.items():
