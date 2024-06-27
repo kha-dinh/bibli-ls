@@ -7,7 +7,6 @@ from typing import Any, Optional
 from bibtexparser import bibtexparser
 from bibtexparser.library import Library
 from bibtexparser.model import Entry
-from bibtexparser.splitter import Field
 from lsprotocol.types import (
     INITIALIZE,
     TEXT_DOCUMENT_COMPLETION,
@@ -36,10 +35,10 @@ from lsprotocol.types import (
 from py_markdown_table.markdown_table import markdown_table
 from pygls.protocol.language_server import LanguageServerProtocol, lsp_method
 from pygls.server import LanguageServer
-from pygls.workspace import TextDocument
 
 from . import __version__
 from .bibli_config import BibliBibDatabase, BibliTomlConfig
+from .utils import prefix_word_at_position, process_bib_entry
 
 
 class BibliLanguageServerProtocol(LanguageServerProtocol):
@@ -68,7 +67,32 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
 
         return initialize_result
 
+    def try_load_configs_file(self, root_path):
+        """Load config file located at the root of the project.
+        Use default config if not found.
+        """
+        import tosholi
+
+        # TODO: find in XDG config paths
+        config_file = Path(os.path.join(root_path, ".bibli.toml"))
+
+        try:
+            f = open(config_file, "rb")
+            self._server.toml_config = tosholi.load(BibliTomlConfig, f)
+            self.show_message(f"Loaded configs from {config_file}")
+        except FileNotFoundError:
+            self.show_message("No config file found, using default settings\n")
+
+    def try_find_bibfiles(self):
+        """TODO: Get all bibtex files found if config is not given."""
+        if self._server.toml_config.bibfiles == []:
+            pass
+
+        if self._server.toml_config.bibfiles == []:
+            self.show_message("No bibfile found.", MessageType.Warning)
+
     def update_trigger_characters(self, initialize_result, prefix):
+        """Add cite prefix to list of trigger characters."""
         # Register additional trigger characters
         completion_provider = initialize_result.capabilities.completion_provider
         if completion_provider:
@@ -78,6 +102,7 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
                 completion_provider.trigger_characters = [prefix]
 
     def schedule_file_watcher(self):
+        """Schedule watchers to watch for changes in bibtex files"""
         from watchdog.events import FileSystemEvent, FileSystemEventHandler
 
         class BibfileChangedHandler(FileSystemEventHandler):
@@ -109,6 +134,7 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
         self.observer.start()
 
     def parse_bibfiles(self):
+        """Parse the given bibtex files."""
         for bibfile_path in self._server.toml_config.bibfiles:
             if not os.path.isabs(bibfile_path) and self.workspace.root_path:
                 bibfile_path = os.path.join(self.workspace.root_path, bibfile_path)
@@ -123,26 +149,6 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
                         bibfile_path,
                     )
                 )
-
-    def try_load_configs_file(self, root_path):
-        import tosholi
-
-        # TODO: find in XDG config paths
-        config_file = Path(os.path.join(root_path, ".bibli.toml"))
-
-        try:
-            f = open(config_file, "rb")
-            self._server.toml_config = tosholi.load(BibliTomlConfig, f)
-            self.show_message(f"Loaded configs from {config_file}")
-        except FileNotFoundError:
-            self.show_message("No config file found, using default settings\n")
-
-    def try_find_bibfiles(self):
-        if self._server.toml_config.bibfiles == []:
-            pass
-
-        if self._server.toml_config.bibfiles == []:
-            self.show_message("No bibfile found.", MessageType.Warning)
 
 
 class BibliLanguageServer(LanguageServer):
@@ -217,19 +223,6 @@ def find_references(ls: BibliLanguageServer, params: ReferenceParams):
     return references
 
 
-def prefix_word_at_position(
-    doc: TextDocument, position: Position, prefix: str
-) -> str | None:
-    re_start_word = re.compile(prefix + "[A-Za-z_0-9]*$")
-
-    try:
-        word = doc.word_at_position(position, re_start_word=re_start_word)
-    except IndexError:
-        word = None
-
-    return word
-
-
 @SERVER.feature(TEXT_DOCUMENT_DEFINITION)
 def goto_definition(ls: BibliLanguageServer, params: DefinitionParams):
     """textDocument/definition: Jump to an object's type definition."""
@@ -254,23 +247,6 @@ def goto_definition(ls: BibliLanguageServer, params: DefinitionParams):
                     ),
                 )
             )
-
-
-def process_bib_entry(entry: Entry, config: BibliTomlConfig):
-    replace_list = ["{{", "}}", "\\vphantom", "\\{", "\\}"]
-    for f in entry.fields:
-        if isinstance(f.value, str):
-            for r in replace_list:
-                f.value = f.value.replace(r, "")
-
-            f.value = f.value.replace("\n", " ")
-            if len(f.value) > config.hover.character_limit:
-                f.value = f.value[: config.hover.character_limit] + "..."
-
-            if f.key == "url":
-                f.value = f"<{f.value}>"
-
-            entry.set_field(Field(f.key, f.value))
 
 
 @SERVER.feature(TEXT_DOCUMENT_HOVER)
