@@ -1,7 +1,16 @@
 from dataclasses import dataclass, field
+from bibtexparser.library import Library
+from lsprotocol.types import InitializeParams, MessageType
+
 
 DEFAULT_HOVER_FORMAT = ["# {entry_type}: {title}\n", "- _{author}_", "---"]
 DEFAULT_COMPLETION_DOC_FORMAT = ["# {entry_type}: {title}\n", "_{author}_", "---"]
+
+
+@dataclass
+class BibliBibDatabase:
+    library: Library
+    path: str
 
 
 @dataclass

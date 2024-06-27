@@ -1,12 +1,11 @@
 import logging
+import os
 import re
-import os.path
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, Pattern
+from typing import Any, Optional
 
-import bibtexparser
-from bibtexparser import Library
+from bibtexparser import bibtexparser
+from bibtexparser.library import Library
 from bibtexparser.model import Entry
 from bibtexparser.splitter import Field
 from lsprotocol.types import (
@@ -40,110 +39,7 @@ from pygls.server import LanguageServer
 from pygls.workspace import TextDocument
 
 from . import __version__
-from .bibli_config import BibliTomlConfig
-
-
-@dataclass
-class BibliBibDatabase:
-    library: Library
-    path: str
-
-
-LIBRARIES: list[BibliBibDatabase] = []
-SYMBOLS_REGEX: Optional[Pattern] = None
-
-
-class BibliConfig:
-    lsp: LanguageServerProtocol
-    params: InitializeParams
-    toml_config: BibliTomlConfig = BibliTomlConfig()
-    config_file: Optional[Path] = None
-
-    def __init__(self, lsp: LanguageServerProtocol, params: InitializeParams) -> None:
-        from watchdog.observers import Observer
-
-        global LIBRARIES
-
-        self.lsp = lsp
-        self.params = params
-        self.observer = Observer()
-
-        self.try_load_configs_file()
-        self.try_find_bibfiles()
-        self.parse_bibfiles()
-
-        self.schedule_file_watcher()
-
-    def schedule_file_watcher(self):
-        from watchdog.events import FileSystemEvent, FileSystemEventHandler
-
-        class BibfileChangedHandler(FileSystemEventHandler):
-            last_event = 0
-
-            def on_modified(self, event: FileSystemEvent) -> None:
-                import time
-
-                # Avoid too many events
-                if time.time_ns() - self.last_event < 10**9:
-                    return
-
-                if not event.is_directory:
-                    config = get_config()
-                    for file in config.toml_config.bibfiles:
-                        if event.src_path == os.path.abspath(file):
-                            config.lsp.show_message(
-                                f"Bibfile {event.src_path} modified"
-                            )
-                            config.parse_bibfiles()
-                            self.last_event = time.time_ns()
-
-        self.observer.schedule(
-            event_handler=BibfileChangedHandler(),
-            path=self.params.root_path,
-            recursive=True,
-        )
-        self.observer.start()
-
-    def try_find_bibfiles(self):
-        if self.toml_config.bibfiles == []:
-            pass
-
-        if self.toml_config.bibfiles == []:
-            self.lsp.show_message("No bibfile found.", MessageType.Warning)
-
-    def parse_bibfiles(self):
-        global LIBRARIES
-        for bibfile_path in self.toml_config.bibfiles:
-            if not os.path.isabs(bibfile_path) and self.params.root_path:
-                bibfile_path = os.path.join(self.params.root_path, bibfile_path)
-
-            with open(bibfile_path, "r") as bibtex_file:
-                library: Library = bibtexparser.parse_string(bibtex_file.read())
-                len = library.entries.__len__()
-                self.lsp.show_message(f"loaded {len} entries from {bibfile_path}")
-                LIBRARIES.append(
-                    BibliBibDatabase(
-                        library,
-                        bibfile_path,
-                    )
-                )
-
-    def try_load_configs_file(self):
-        import tosholi
-
-        # TODO: find in XDG config paths
-        if self.params.root_path:
-            self.config_file = Path(os.path.join(self.params.root_path, ".bibli.toml"))
-
-        if self.config_file:
-            with open(self.config_file, "rb") as f:
-                self.toml_config = tosholi.load(BibliTomlConfig, f)
-                self.lsp.show_message(f"Loaded configs from {self.config_file}")
-        else:
-            self.lsp.show_message("No config file found, using default settings\n")
-
-
-CONFIG: Optional[BibliConfig] = None
+from .bibli_config import BibliBibDatabase, BibliTomlConfig
 
 
 class BibliLanguageServerProtocol(LanguageServerProtocol):
@@ -153,19 +49,100 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
 
     @lsp_method(INITIALIZE)
     def lsp_initialize(self, params: InitializeParams) -> InitializeResult:
-        global CONFIG
-        CONFIG = BibliConfig(self, params)
+        from watchdog.observers import Observer
+
+        self.observer = Observer()
+        server = self._server
 
         initialize_result: InitializeResult = super().lsp_initialize(params)
 
+        if params.root_path:
+            self.try_load_configs_file(params.root_path)
+
+        self.update_trigger_characters(
+            initialize_result, server.toml_config.completion.prefix
+        )
+        self.schedule_file_watcher()
+        self.try_find_bibfiles()
+        self.parse_bibfiles()
+
+        return initialize_result
+
+    def update_trigger_characters(self, initialize_result, prefix):
         # Register additional trigger characters
         completion_provider = initialize_result.capabilities.completion_provider
         if completion_provider:
             if completion_provider.trigger_characters:
-                completion_provider.trigger_characters.append(
-                    CONFIG.toml_config.completion.prefix
+                completion_provider.trigger_characters.append(prefix)
+            else:
+                completion_provider.trigger_characters = [prefix]
+
+    def schedule_file_watcher(self):
+        from watchdog.events import FileSystemEvent, FileSystemEventHandler
+
+        class BibfileChangedHandler(FileSystemEventHandler):
+            last_event = 0
+
+            def __init__(self, lsp: BibliLanguageServerProtocol) -> None:
+                self.lsp = lsp
+                super().__init__()
+
+            def on_modified(self, event: FileSystemEvent) -> None:
+                import time
+
+                # Avoid too many events
+                if time.time_ns() - self.last_event < 10**9:
+                    return
+
+                if not event.is_directory:
+                    for file in self.lsp._server.toml_config.bibfiles:
+                        if event.src_path == os.path.abspath(file):
+                            self.lsp.show_message(f"Bibfile {event.src_path} modified")
+                            self.lsp.parse_bibfiles()
+                            self.last_event = time.time_ns()
+
+        self.observer.schedule(
+            event_handler=BibfileChangedHandler(self),
+            path=self.workspace.root_path,
+            recursive=True,
+        )
+        self.observer.start()
+
+    def parse_bibfiles(self):
+        for bibfile_path in self._server.toml_config.bibfiles:
+            if not os.path.isabs(bibfile_path) and self.workspace.root_path:
+                bibfile_path = os.path.join(self.workspace.root_path, bibfile_path)
+
+            with open(bibfile_path, "r") as bibtex_file:
+                library: Library = bibtexparser.parse_string(bibtex_file.read())
+                len = library.entries.__len__()
+                self.show_message(f"loaded {len} entries from {bibfile_path}")
+                self._server.libraries.append(
+                    BibliBibDatabase(
+                        library,
+                        bibfile_path,
+                    )
                 )
-        return initialize_result
+
+    def try_load_configs_file(self, root_path):
+        import tosholi
+
+        # TODO: find in XDG config paths
+        config_file = Path(os.path.join(root_path, ".bibli.toml"))
+
+        try:
+            f = open(config_file, "rb")
+            self._server.toml_config = tosholi.load(BibliTomlConfig, f)
+            self.show_message(f"Loaded configs from {config_file}")
+        except FileNotFoundError:
+            self.show_message("No config file found, using default settings\n")
+
+    def try_find_bibfiles(self):
+        if self._server.toml_config.bibfiles == []:
+            pass
+
+        if self._server.toml_config.bibfiles == []:
+            self.show_message("No bibfile found.", MessageType.Warning)
 
 
 class BibliLanguageServer(LanguageServer):
@@ -176,6 +153,8 @@ class BibliLanguageServer(LanguageServer):
     """
 
     # initialization_options: InitializationOptions
+    toml_config: BibliTomlConfig = BibliTomlConfig()
+    libraries: list[BibliBibDatabase] = []
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         self.index = {}
@@ -195,13 +174,12 @@ def find_references(ls: BibliLanguageServer, params: ReferenceParams):
 
     from ripgrepy import Ripgrepy
 
-    config = get_config()
-
-    if not config.params.root_path:
+    root_path = ls.workspace.root_path
+    if not root_path:
         return
 
     document = ls.workspace.get_text_document(params.text_document.uri)
-    prefix = config.toml_config.completion.prefix
+    prefix = ls.toml_config.completion.prefix
     word = prefix_word_at_position(document, params.position, prefix)
 
     if not word:
@@ -216,7 +194,7 @@ def find_references(ls: BibliLanguageServer, params: ReferenceParams):
     # if not exist:
     #     return
 
-    rg = Ripgrepy(word, config.params.root_path)
+    rg = Ripgrepy(word, root_path)
     result = rg.with_filename().json().run().as_dict
     references = []
 
@@ -257,15 +235,14 @@ def goto_definition(ls: BibliLanguageServer, params: DefinitionParams):
     """textDocument/definition: Jump to an object's type definition."""
     document = ls.workspace.get_text_document(params.text_document.uri)
 
-    config = get_config()
+    prefix = ls.toml_config.completion.prefix
 
-    prefix = config.toml_config.completion.prefix
     word = prefix_word_at_position(document, params.position, prefix)
     if not word:
         return
 
     id = word.replace(prefix, "")
-    for library in LIBRARIES:
+    for library in ls.libraries:
         entry: Entry | None = library.library.entries_dict.get(id)
         if entry and entry.start_line:
             ls.show_document(
@@ -296,16 +273,8 @@ def process_bib_entry(entry: Entry, config: BibliTomlConfig):
             entry.set_field(Field(f.key, f.value))
 
 
-def get_config() -> BibliConfig:
-    global CONFIG
-    if not CONFIG:
-        raise ValueError("CONFIG is None")
-
-    return CONFIG
-
-
 @SERVER.feature(TEXT_DOCUMENT_HOVER)
-def hover(ls: LanguageServer, params: HoverParams):
+def hover(ls: BibliLanguageServer, params: HoverParams):
     """textDocument/hover: Display entry metadata."""
     import mdformat
 
@@ -313,33 +282,31 @@ def hover(ls: LanguageServer, params: HoverParams):
     document_uri = params.text_document.uri
     document = ls.workspace.get_text_document(document_uri)
 
-    config = get_config()
-
-    prefix = config.toml_config.completion.prefix
+    prefix = ls.toml_config.completion.prefix
     word = prefix_word_at_position(document, params.position, prefix)
     if not word:
         return None
 
     id = word.replace(prefix, "")
-    for library in LIBRARIES:
+    for library in ls.libraries:
         entry = library.library.entries_dict.get(id)
         if entry:
-            process_bib_entry(entry, config.toml_config)
+            process_bib_entry(entry, ls.toml_config)
 
             format_dict = {f.key: f.value for f in entry.fields}
             format_dict["entry_type"] = entry.entry_type.upper()
             hover_text = [
-                f.format(**format_dict) for f in config.toml_config.hover.format_string
+                f.format(**format_dict) for f in ls.toml_config.hover.format_string
             ]
 
             hover_content = {
                 k: v
                 for k, v in entry.items()
-                if config.toml_config.hover.show_fields == []
-                or config.toml_config.hover.show_fields.count(k) > 0
+                if ls.toml_config.hover.show_fields == []
+                or ls.toml_config.hover.show_fields.count(k) > 0
             }
 
-            match config.toml_config.hover.format:
+            match ls.toml_config.hover.format:
                 case "markdown":
                     table_content = [
                         {"Key": k, "Value": v} for k, v in hover_content.items()
@@ -364,7 +331,7 @@ def hover(ls: LanguageServer, params: HoverParams):
                     kind=MarkupKind.Markdown,
                     value=mdformat.text(
                         "\n".join(hover_text),
-                        options={"wrap": config.toml_config.hover.wrap},
+                        options={"wrap": ls.toml_config.hover.wrap},
                     ),
                 ),
                 range=Range(
@@ -377,22 +344,20 @@ def hover(ls: LanguageServer, params: HoverParams):
 
 @SERVER.feature(
     TEXT_DOCUMENT_COMPLETION,
-    # TODO: How to change trigger character based on config file?
     CompletionOptions(
-        trigger_characters=["[", "<", "{"],
         # resolve_provider=True,
     ),
 )
 def completion(
-    server: BibliLanguageServer, params: CompletionParams
+    ls: BibliLanguageServer, params: CompletionParams
 ) -> Optional[CompletionList]:
     """textDocument/completion: Returns completion items."""
-    completion_items = []
-    for library in LIBRARIES:
-        for k, v in library.library.entries_dict.items():
-            config = get_config()
 
-            key = config.toml_config.completion.prefix + k
+    prefix = ls.toml_config.completion.prefix
+    completion_items = []
+    for library in ls.libraries:
+        for k, v in library.library.entries_dict.items():
+            key = prefix + k
             text_edits = []
 
             completion_items.append(
