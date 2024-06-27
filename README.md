@@ -17,7 +17,7 @@ A [Language Server](https://microsoft.github.io/language-server-protocol/) that 
 | [textDocument/definition](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_definition) | Go to the first definition found in the `.bib` files.                                                                                     |
 | [textDocument/references](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_references) | Find appearance of `prefix + ID` through ripgrep.                                                                                         |
 | [textDocument/hover](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_hover)           | Show metadata from `.bib` files based on configurations.                                                                                  |
-| [textDocument/completion](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_completion) | Triggered by the `cite_prefix` configuration or `[`, `{`, `<`. Show completion of citation ID for bibtex entries and their documentation. |
+| [textDocument/completion](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_completion) | Triggered by the `completion.prefix` configuration. Show completion of citation ID for bibtex entries and their documentation. |
 
 ## Configuration
 
@@ -44,7 +44,7 @@ pip install bibli-ls
 
 ### Neovim
 
-Automatic configuration through [lspconfig]() is not supported yet. To enable bibli-ls, put the following code in your Neovim config.
+Automatic configuration through [lspconfig]() has yet to be supported. To enable bibli-ls, put the following code in your Neovim config.
 
 ```lua
 local lspconfig = require("lspconfig")
