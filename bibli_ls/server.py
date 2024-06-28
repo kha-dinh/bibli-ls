@@ -135,6 +135,8 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
 
     def parse_bibfiles(self):
         """Parse the given bibtex files."""
+
+        self._server.libraries.clear()
         for bibfile_path in self._server.toml_config.bibfiles:
             if not os.path.isabs(bibfile_path) and self.workspace.root_path:
                 bibfile_path = os.path.join(self.workspace.root_path, bibfile_path)
