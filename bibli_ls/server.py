@@ -32,13 +32,12 @@ from lsprotocol.types import (
     ReferenceParams,
     ShowDocumentParams,
 )
-from py_markdown_table.markdown_table import markdown_table
 from pygls.protocol.language_server import LanguageServerProtocol, lsp_method
 from pygls.server import LanguageServer
 
 from . import __version__
 from .bibli_config import BibliBibDatabase, BibliTomlConfig
-from .utils import prefix_word_at_position, process_bib_entry
+from .utils import build_doc_string, prefix_word_at_position
 
 
 class BibliLanguageServerProtocol(LanguageServerProtocol):
@@ -59,7 +58,7 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
             self.try_load_configs_file(params.root_path)
 
         self.update_trigger_characters(
-            initialize_result, server.toml_config.completion.prefix
+            initialize_result, server.toml_config.cite_prefix
         )
         self.schedule_file_watcher()
         self.try_find_bibfiles()
@@ -161,11 +160,15 @@ class BibliLanguageServer(LanguageServer):
     """
 
     # initialization_options: InitializationOptions
-    toml_config: BibliTomlConfig = BibliTomlConfig()
-    libraries: list[BibliBibDatabase] = []
+    toml_config: BibliTomlConfig
+    libraries: list[BibliBibDatabase]
+    cite_regex: re.Pattern
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         self.index = {}
+        self.libraries = []
+        self.toml_config = BibliTomlConfig()
+
         super().__init__(*args, **kwargs)
 
 
@@ -187,7 +190,7 @@ def find_references(ls: BibliLanguageServer, params: ReferenceParams):
         return
 
     document = ls.workspace.get_text_document(params.text_document.uri)
-    prefix = ls.toml_config.completion.prefix
+    prefix = ls.toml_config.cite_prefix
     word = prefix_word_at_position(document, params.position, prefix)
 
     if not word:
@@ -230,7 +233,7 @@ def goto_definition(ls: BibliLanguageServer, params: DefinitionParams):
     """textDocument/definition: Jump to an object's type definition."""
     document = ls.workspace.get_text_document(params.text_document.uri)
 
-    prefix = ls.toml_config.completion.prefix
+    prefix = ls.toml_config.cite_prefix
 
     word = prefix_word_at_position(document, params.position, prefix)
     if not word:
@@ -260,7 +263,7 @@ def hover(ls: BibliLanguageServer, params: HoverParams):
     document_uri = params.text_document.uri
     document = ls.workspace.get_text_document(document_uri)
 
-    prefix = ls.toml_config.completion.prefix
+    prefix = ls.toml_config.cite_prefix
     word = prefix_word_at_position(document, params.position, prefix)
     if not word:
         return None
@@ -269,48 +272,12 @@ def hover(ls: BibliLanguageServer, params: HoverParams):
     for library in ls.libraries:
         entry = library.library.entries_dict.get(id)
         if entry:
-            process_bib_entry(entry, ls.toml_config)
-
-            format_dict = {f.key: f.value for f in entry.fields}
-            format_dict["entry_type"] = entry.entry_type.upper()
-            hover_text = [
-                f.format(**format_dict) for f in ls.toml_config.hover.format_string
-            ]
-
-            hover_content = {
-                k: v
-                for k, v in entry.items()
-                if ls.toml_config.hover.show_fields == []
-                or ls.toml_config.hover.show_fields.count(k) > 0
-            }
-
-            match ls.toml_config.hover.format:
-                case "markdown":
-                    table_content = [
-                        {"Key": k, "Value": v} for k, v in hover_content.items()
-                    ]
-                    table = (
-                        markdown_table(table_content)
-                        .set_params(
-                            row_sep="markdown",
-                            padding_weight="right",
-                            multiline={"Key": 20, "Value": 70},
-                            quote=False,
-                        )
-                        .get_markdown()
-                    )
-                    hover_text.append(table)
-                case "list":
-                    for k, v in hover_content.items():
-                        hover_text.append(f"- __{k}__: {v}")
+            hover_text = build_doc_string(entry, ls.toml_config.hover.doc_format)
 
             return Hover(
                 contents=MarkupContent(
                     kind=MarkupKind.Markdown,
-                    value=mdformat.text(
-                        "\n".join(hover_text),
-                        options={"wrap": ls.toml_config.hover.wrap},
-                    ),
+                    value=hover_text,
                 ),
                 range=Range(
                     start=Position(line=pos.line, character=0),
@@ -331,20 +298,22 @@ def completion(
 ) -> Optional[CompletionList]:
     """textDocument/completion: Returns completion items."""
 
-    prefix = ls.toml_config.completion.prefix
+    prefix = ls.toml_config.cite_prefix
     completion_items = []
+
     for library in ls.libraries:
-        for k, v in library.library.entries_dict.items():
+        for k, entry in library.library.entries_dict.items():
             key = prefix + k
             text_edits = []
-
+            doc_string = build_doc_string(entry, ls.toml_config.completion.doc_format)
             completion_items.append(
                 CompletionItem(
                     key,
                     additional_text_edits=text_edits,
                     kind=CompletionItemKind.Field,
                     documentation=MarkupContent(
-                        kind=MarkupKind.Markdown, value=f"# {v["title"]}\n"
+                        kind=MarkupKind.Markdown,
+                        value=doc_string,
                     ),
                 )
             )
