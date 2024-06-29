@@ -15,7 +15,7 @@ dependencies = [
   "py_markdown_table",
   "pygls",
   "tosholi",
-  "mdformat-gfm",
+  "mdformat",
   "ripgrepy",
 ]
 classifiers = [
