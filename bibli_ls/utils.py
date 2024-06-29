@@ -1,23 +1,24 @@
+import logging
 from typing import List, assert_type
 from bibtexparser.model import Entry, Field
 from lsprotocol.types import Position
 import re
 from pygls.workspace import TextDocument
 
-from .bibli_config import DocFormatingConfig
+from .bibli_config import BibliBibDatabase, BibliTomlConfig, DocFormatingConfig
 
 
-def prefix_word_at_position(
-    doc: TextDocument, position: Position, prefix: str
+def cite_at_position(
+    doc: TextDocument, position: Position, config: BibliTomlConfig
 ) -> str | None:
-    re_start_word = re.compile(prefix + "[A-Za-z_0-9]*$")
+    line = doc.lines[position.line]
 
-    try:
-        word = doc.word_at_position(position, re_start_word=re_start_word)
-    except IndexError:
-        word = None
+    # TODO: Check if encapsulated in "[]"
+    for match in re.finditer(config.cite_regex, line):
+        if match.pos <= position.character and match.endpos >= position.character:
+            return match.group(1)
 
-    return word
+    return None
 
 
 def preprocess_bib_entry(entry: Entry, config: DocFormatingConfig):

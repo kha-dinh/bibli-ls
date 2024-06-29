@@ -11,6 +11,8 @@ from lsprotocol.types import (
     INITIALIZE,
     TEXT_DOCUMENT_COMPLETION,
     TEXT_DOCUMENT_DEFINITION,
+    TEXT_DOCUMENT_DID_CHANGE,
+    TEXT_DOCUMENT_DID_OPEN,
     TEXT_DOCUMENT_HOVER,
     TEXT_DOCUMENT_REFERENCES,
     CompletionItem,
@@ -19,6 +21,9 @@ from lsprotocol.types import (
     CompletionOptions,
     CompletionParams,
     DefinitionParams,
+    Diagnostic,
+    DiagnosticSeverity,
+    DidOpenTextDocumentParams,
     Hover,
     HoverParams,
     InitializeParams,
@@ -35,10 +40,11 @@ from lsprotocol.types import (
 
 from pygls.protocol.language_server import LanguageServerProtocol, lsp_method
 from pygls.server import LanguageServer
+from pygls.workspace.text_document import TextDocument
 
 from . import __version__
 from .bibli_config import BibliBibDatabase, BibliTomlConfig
-from .utils import build_doc_string, prefix_word_at_position
+from .utils import build_doc_string, cite_at_position
 
 
 class BibliLanguageServerProtocol(LanguageServerProtocol):
@@ -58,9 +64,8 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
         if params.root_path:
             self.try_load_configs_file(root_path=params.root_path)
 
-        self.update_trigger_characters(
-            initialize_result, server.toml_config.cite_prefix
-        )
+        # TODO: Redo these init if config is reloaded
+        self.update_trigger_characters(initialize_result, server.config.cite_prefix)
         self.schedule_file_watcher()
         self.try_find_bibfiles()
         self.parse_bibfiles()
@@ -82,7 +87,7 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
 
         try:
             f = open(config_file, "rb")
-            self._server.toml_config = tosholi.load(BibliTomlConfig, f)
+            self._server.config = tosholi.load(BibliTomlConfig, f)
             self._server.config_file = config_file
             self.show_message(f"Loaded configs from {config_file}")
         except FileNotFoundError:
@@ -90,10 +95,10 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
 
     def try_find_bibfiles(self):
         """TODO: Get all bibtex files found if config is not given."""
-        if self._server.toml_config.bibfiles == []:
+        if self._server.config.bibfiles == []:
             pass
 
-        if self._server.toml_config.bibfiles == []:
+        if self._server.config.bibfiles == []:
             self.show_message("No bibfile found.", MessageType.Warning)
 
     def update_trigger_characters(self, initialize_result, prefix):
@@ -125,7 +130,7 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
                     return
 
                 if not event.is_directory:
-                    for file in self.lsp._server.toml_config.bibfiles:
+                    for file in self.lsp._server.config.bibfiles:
                         if event.src_path == os.path.abspath(file):
                             self.lsp.show_message(f"Bibfile {event.src_path} modified")
                             self.lsp.parse_bibfiles()
@@ -149,7 +154,7 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
         """Parse the given bibtex files."""
 
         self._server.libraries.clear()
-        for bibfile_path in self._server.toml_config.bibfiles:
+        for bibfile_path in self._server.config.bibfiles:
             if not os.path.isabs(bibfile_path) and self.workspace.root_path:
                 bibfile_path = os.path.join(self.workspace.root_path, bibfile_path)
 
@@ -174,16 +179,47 @@ class BibliLanguageServer(LanguageServer):
 
     # initialization_options: InitializationOptions
     config_file: Path
-    toml_config: BibliTomlConfig
+    config: BibliTomlConfig
     libraries: list[BibliBibDatabase]
-    cite_regex: re.Pattern
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         self.index = {}
+        self.diagnostics = {}
         self.libraries = []
-        self.toml_config = BibliTomlConfig()
+        self.config = BibliTomlConfig()
 
         super().__init__(*args, **kwargs)
+
+    def find_in_libraries(self, key: str) -> Entry | None:
+        for lib in self.libraries:
+            if lib.library.entries_dict.__contains__(key):
+                return lib.library.entries_dict[key]
+
+        return None
+
+    def diagnose(self, document: TextDocument):
+        diagnostics = []
+
+        for idx, line in enumerate(document.lines):
+            for match in re.finditer(self.config.cite_regex, line):
+                key = match.group(1)
+                if self.find_in_libraries(key):
+                    continue
+
+                message = f'Item "{key}" does not exist in library'
+                severity = DiagnosticSeverity.Warning
+                diagnostics.append(
+                    Diagnostic(
+                        message=message,
+                        severity=severity,
+                        range=Range(
+                            start=Position(line=idx, character=match.pos),
+                            end=Position(line=idx, character=match.endpos),
+                        ),
+                    )
+                )
+
+        self.diagnostics[document.uri] = (document.version, diagnostics)
 
 
 SERVER = BibliLanguageServer(
@@ -191,6 +227,26 @@ SERVER = BibliLanguageServer(
     version=__version__,
     protocol_cls=BibliLanguageServerProtocol,
 )
+
+
+@SERVER.feature(TEXT_DOCUMENT_DID_OPEN)
+def did_open(ls: BibliLanguageServer, params: DidOpenTextDocumentParams):
+    """Parse each document when it is opened"""
+    doc = ls.workspace.get_text_document(params.text_document.uri)
+    ls.diagnose(doc)
+
+    for uri, (version, diagnostics) in ls.diagnostics.items():
+        ls.publish_diagnostics(uri=uri, version=version, diagnostics=diagnostics)
+
+
+@SERVER.feature(TEXT_DOCUMENT_DID_CHANGE)
+def did_change(ls: BibliLanguageServer, params: DidOpenTextDocumentParams):
+    """Parse each document when it is changed"""
+    doc = ls.workspace.get_text_document(params.text_document.uri)
+    ls.diagnose(doc)
+
+    for uri, (version, diagnostics) in ls.diagnostics.items():
+        ls.publish_diagnostics(uri=uri, version=version, diagnostics=diagnostics)
 
 
 @SERVER.feature(TEXT_DOCUMENT_REFERENCES)
@@ -204,10 +260,9 @@ def find_references(ls: BibliLanguageServer, params: ReferenceParams):
         return
 
     document = ls.workspace.get_text_document(params.text_document.uri)
-    prefix = ls.toml_config.cite_prefix
-    word = prefix_word_at_position(document, params.position, prefix)
+    cite = cite_at_position(document, params.position, ls.config)
 
-    if not word:
+    if not cite:
         return
 
     # TODO: do we need to check exist in library?
@@ -219,7 +274,8 @@ def find_references(ls: BibliLanguageServer, params: ReferenceParams):
     # if not exist:
     #     return
 
-    rg = Ripgrepy(word, root_path)
+    # Include prefix for more accuracy
+    rg = Ripgrepy(ls.config.cite_prefix + cite, root_path)
     result = rg.with_filename().json().run().as_dict
     references = []
 
@@ -247,15 +303,12 @@ def goto_definition(ls: BibliLanguageServer, params: DefinitionParams):
     """textDocument/definition: Jump to an object's type definition."""
     document = ls.workspace.get_text_document(params.text_document.uri)
 
-    prefix = ls.toml_config.cite_prefix
-
-    word = prefix_word_at_position(document, params.position, prefix)
-    if not word:
+    cite = cite_at_position(document, params.position, ls.config)
+    if not cite:
         return
 
-    id = word.replace(prefix, "")
     for library in ls.libraries:
-        entry: Entry | None = library.library.entries_dict.get(id)
+        entry: Entry | None = library.library.entries_dict.get(cite)
         if entry and entry.start_line:
             ls.show_document(
                 ShowDocumentParams(
@@ -271,22 +324,19 @@ def goto_definition(ls: BibliLanguageServer, params: DefinitionParams):
 @SERVER.feature(TEXT_DOCUMENT_HOVER)
 def hover(ls: BibliLanguageServer, params: HoverParams):
     """textDocument/hover: Display entry metadata."""
-    import mdformat
 
     pos = params.position
     document_uri = params.text_document.uri
     document = ls.workspace.get_text_document(document_uri)
 
-    prefix = ls.toml_config.cite_prefix
-    word = prefix_word_at_position(document, params.position, prefix)
-    if not word:
+    cite = cite_at_position(document, params.position, ls.config)
+    if not cite:
         return None
 
-    id = word.replace(prefix, "")
     for library in ls.libraries:
-        entry = library.library.entries_dict.get(id)
+        entry = library.library.entries_dict.get(cite)
         if entry:
-            hover_text = build_doc_string(entry, ls.toml_config.hover.doc_format)
+            hover_text = build_doc_string(entry, ls.config.hover.doc_format)
 
             return Hover(
                 contents=MarkupContent(
@@ -312,14 +362,14 @@ def completion(
 ) -> Optional[CompletionList]:
     """textDocument/completion: Returns completion items."""
 
-    prefix = ls.toml_config.cite_prefix
+    prefix = ls.config.cite_prefix
     completion_items = []
 
     for library in ls.libraries:
         for k, entry in library.library.entries_dict.items():
             key = prefix + k
             text_edits = []
-            doc_string = build_doc_string(entry, ls.toml_config.completion.doc_format)
+            doc_string = build_doc_string(entry, ls.config.completion.doc_format)
             completion_items.append(
                 CompletionItem(
                     key,
