@@ -32,6 +32,7 @@ from lsprotocol.types import (
     ReferenceParams,
     ShowDocumentParams,
 )
+
 from pygls.protocol.language_server import LanguageServerProtocol, lsp_method
 from pygls.server import LanguageServer
 
@@ -55,7 +56,7 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
         initialize_result: InitializeResult = super().lsp_initialize(params)
 
         if params.root_path:
-            self.try_load_configs_file(params.root_path)
+            self.try_load_configs_file(root_path=params.root_path)
 
         self.update_trigger_characters(
             initialize_result, server.toml_config.cite_prefix
@@ -66,18 +67,23 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
 
         return initialize_result
 
-    def try_load_configs_file(self, root_path):
+    def try_load_configs_file(self, root_path=None, config_file=None):
         """Load config file located at the root of the project.
         Use default config if not found.
         """
         import tosholi
 
-        # TODO: find in XDG config paths
-        config_file = Path(os.path.join(root_path, ".bibli.toml"))
+        if not config_file:
+            if root_path:
+                config_file = Path(os.path.join(root_path, ".bibli.toml"))
+
+        if not config_file:
+            return
 
         try:
             f = open(config_file, "rb")
             self._server.toml_config = tosholi.load(BibliTomlConfig, f)
+            self._server.config_file = config_file
             self.show_message(f"Loaded configs from {config_file}")
         except FileNotFoundError:
             self.show_message("No config file found, using default settings\n")
@@ -104,7 +110,7 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
         """Schedule watchers to watch for changes in bibtex files"""
         from watchdog.events import FileSystemEvent, FileSystemEventHandler
 
-        class BibfileChangedHandler(FileSystemEventHandler):
+        class FileChangedHandler(FileSystemEventHandler):
             last_event = 0
 
             def __init__(self, lsp: BibliLanguageServerProtocol) -> None:
@@ -125,8 +131,15 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
                             self.lsp.parse_bibfiles()
                             self.last_event = time.time_ns()
 
+                    if event.src_path == os.path.abspath(self.lsp._server.config_file):
+                        self.lsp.show_message(f"Config file {event.src_path} modified")
+                        self.lsp.try_load_configs_file(
+                            config_file=self.lsp._server.config_file
+                        )
+                        self.last_event = time.time_ns()
+
         self.observer.schedule(
-            event_handler=BibfileChangedHandler(self),
+            event_handler=FileChangedHandler(self),
             path=self.workspace.root_path,
             recursive=True,
         )
@@ -160,6 +173,7 @@ class BibliLanguageServer(LanguageServer):
     """
 
     # initialization_options: InitializationOptions
+    config_file: Path
     toml_config: BibliTomlConfig
     libraries: list[BibliBibDatabase]
     cite_regex: re.Pattern
