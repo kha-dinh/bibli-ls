@@ -1,10 +1,14 @@
 <h3 align="center">
- <img src="https://raw.githubusercontent.com/kha-dinh/bibli-ls/main/docs/logo.jpeg" width="100" alt="Logo"/><br/>
+  <img
+    src="https://raw.githubusercontent.com/kha-dinh/bibli-ls/main/docs/logo.jpeg"
+    width="100"
+    alt="Logo"
+  /><br />
 </h3>
 
 # Bibli Language Server
 
-A [Language Server](https://microsoft.github.io/language-server-protocol/) that brings bibliographies into your note-taking workflows.
+A [Language Server](https://microsoft.github.io/language-server-protocol/) that brings bibliographies into your notes.
 
 [![image-version](https://img.shields.io/pypi/v/bibli-ls.svg)](https://python.org/pypi/bibli-ls)
 [![image-license](https://img.shields.io/pypi/l/bibli-ls.svg)](https://python.org/pypi/bibli-ls)
@@ -12,26 +16,32 @@ A [Language Server](https://microsoft.github.io/language-server-protocol/) that 
 
 ## Supported LSP capabilities
 
-| LSP Feature                                                                                                                                    | Behavior                                                                                                                                  |
-| ---------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| [textDocument/definition](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_definition) | Go to the first definition found in the `.bib` files.                                                                                     |
-| [textDocument/references](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_references) | Find appearance of `prefix + ID` through ripgrep.                                                                                         |
-| [textDocument/hover](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_hover)           | Show metadata from `.bib` files based on configurations.                                                                                  |
-| [textDocument/completion](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_completion) | Triggered by the `completion.prefix` configuration. Show completion of citation ID for bibtex entries and their documentation. |
+| LSP Features                                                                                                                                    | Behavior                                                                                                                 |
+| ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| [textDocument/definition](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_definition)  | Go to the first definition found in the `.bib` files.                                                                    |
+| [textDocument/references](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_references)  | Find appearance of `prefix + ID` with ripgrep.                                                                           |
+| [textDocument/hover](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_hover)            | Show metadata from `.bib` files based on configurations.                                                                 |
+| [textDocument/completion](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_completion)  | Triggered by the `cite_prefix` configuration. Show completion of citation ID for bibtex entries and their documentation. |
+| [textDocument/diagnoistic](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_completion) | Find citations without a proper entry in the bibfile.                                                                    |
 
 ## Configuration
 
-Create a configuration file `.bibli.toml` at the root of your note directory. Here is a sample configurations:
+Create a configuration file `.bibli.toml` at the root of your note directory. Here is a sample configuration:
 
 ```toml
 bibfiles = ["references.bib"] # Relative/Absolute path to your bibliographies
 
-[hover]
-show_fields = ["abstract", "year", "booktitle"]
-format = "list" # Available formats: "markdown" (markdown table) and "list" (markdown list)
+[cite]
+prefix = "@" #
 
-[completion]
-cite_prefix = "@"
+[hover.doc_format]
+show_fields = ["abstract", "year", "booktitle", "url"]
+format = "table" # Available formats: "table"  and "list" (markdown)
+
+[completion.doc_format]
+show_fields = ["abstract", "year", "booktitle"]
+format = "list"
+
 ```
 
 ## Installation
@@ -66,6 +76,7 @@ lspconfig.bibli_ls.setup({})
 ### Planned Features (TODO)
 
 - Universal: Works with any note format
+- LSP-native configurations
 - Per-document bibliographies
 - More LSP capabilities
   - [mkdnflow.nvim](https://github.com/jakewvincent/mkdnflow.nvim)-like opening of URL

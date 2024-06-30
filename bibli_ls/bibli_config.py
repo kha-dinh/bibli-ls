@@ -2,9 +2,13 @@ from dataclasses import dataclass, field
 from bibtexparser.library import Library
 
 
-DEFAULT_HEADER_FORMAT = ["# {entry_type}: {title}", "- _{author}_", "---"]
+DEFAULT_HEADER_FORMAT = [
+    "# `{entry_type}` {title}",
+    "_{author}_",
+    "───────────────────────────────────────────────────────────────────────────────────",
+]
 DEFAULT_CITE_PREFIX = "@"
-DEFAULT_CITE_REGEX_STR = "@([A-Za-z_0-9]+)"
+DEFAULT_CITE_REGEX_STR = DEFAULT_CITE_PREFIX + "([A-Za-z_0-9]+)"
 
 DEFAULT_WRAP = 80
 DEFAULT_CHAR_LIMIT = 400
@@ -31,6 +35,12 @@ class DocFormatingConfig:
 
 
 @dataclass
+class CiteConfig:
+    prefix: str = DEFAULT_CITE_PREFIX
+    regex: str = DEFAULT_CITE_REGEX_STR
+
+
+@dataclass
 class HoverConfig:
     doc_format: DocFormatingConfig = field(default_factory=lambda: DocFormatingConfig())
 
@@ -47,6 +57,4 @@ class BibliTomlConfig:
     bibfiles: list[str] = field(default_factory=lambda: [])
     hover: HoverConfig = field(default_factory=lambda: HoverConfig())
     completion: CompletionConfig = field(default_factory=lambda: CompletionConfig())
-
-    cite_prefix: str = DEFAULT_CITE_PREFIX
-    cite_regex: str = DEFAULT_CITE_REGEX_STR
+    cite: CiteConfig = field(default_factory=lambda: CiteConfig())

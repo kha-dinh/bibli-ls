@@ -65,7 +65,7 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
             self.try_load_configs_file(root_path=params.root_path)
 
         # TODO: Redo these init if config is reloaded
-        self.update_trigger_characters(initialize_result, server.config.cite_prefix)
+        self.update_trigger_characters(initialize_result, server.config.cite.prefix)
         self.schedule_file_watcher()
         self.try_find_bibfiles()
         self.parse_bibfiles()
@@ -201,7 +201,7 @@ class BibliLanguageServer(LanguageServer):
         diagnostics = []
 
         for idx, line in enumerate(document.lines):
-            for match in re.finditer(self.config.cite_regex, line):
+            for match in re.finditer(self.config.cite.regex, line):
                 key = match.group(1)
                 if self.find_in_libraries(key):
                     continue
@@ -275,7 +275,7 @@ def find_references(ls: BibliLanguageServer, params: ReferenceParams):
     #     return
 
     # Include prefix for more accuracy
-    rg = Ripgrepy(ls.config.cite_prefix + cite, root_path)
+    rg = Ripgrepy(ls.config.cite.prefix + cite, root_path)
     result = rg.with_filename().json().run().as_dict
     references = []
 
@@ -308,14 +308,21 @@ def goto_definition(ls: BibliLanguageServer, params: DefinitionParams):
         return
 
     for library in ls.libraries:
-        entry: Entry | None = library.library.entries_dict.get(cite)
+        entry = library.library.entries_dict.get(cite)
         if entry and entry.start_line:
+            # match = re.search(ls.config.cite.regex, document.lines[entry.start_line])
+            library_uri = f"file://{library.path}"
+            library_doc = ls.workspace.get_text_document(library_uri)
+            line = library_doc.lines[entry.start_line]
+            start = line.find(cite)
+            # ls.show_message(line)
+
             ls.show_document(
                 ShowDocumentParams(
-                    f"file://{library.path}",
+                    library_uri,
                     selection=Range(
-                        start=Position(entry.start_line, 0),
-                        end=Position(entry.start_line, 0),
+                        start=Position(entry.start_line, start),
+                        end=Position(entry.start_line, start + len(cite)),
                     ),
                 )
             )
@@ -362,7 +369,7 @@ def completion(
 ) -> Optional[CompletionList]:
     """textDocument/completion: Returns completion items."""
 
-    prefix = ls.config.cite_prefix
+    prefix = ls.config.cite.prefix
     completion_items = []
 
     for library in ls.libraries:

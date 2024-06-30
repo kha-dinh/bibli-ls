@@ -1,4 +1,3 @@
-import logging
 from typing import List, assert_type
 from bibtexparser.model import Entry, Field
 from lsprotocol.types import Position
@@ -14,7 +13,7 @@ def cite_at_position(
     line = doc.lines[position.line]
 
     # TODO: Check if encapsulated in "[]"
-    for match in re.finditer(config.cite_regex, line):
+    for match in re.finditer(config.cite.regex, line):
         if match.pos <= position.character and match.endpos >= position.character:
             return match.group(1)
 
@@ -41,7 +40,7 @@ def build_doc_string(entry: Entry, config: DocFormatingConfig):
     preprocess_bib_entry(entry, config)
 
     field_dict = {f.key: f.value for f in entry.fields}
-    field_dict["entry_type"] = entry.entry_type.upper()
+    field_dict["entry_type"] = entry.entry_type
 
     doc_string = ""
 
