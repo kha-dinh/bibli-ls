@@ -206,6 +206,7 @@ class BibliLanguageServer(LanguageServer):
                 if self.find_in_libraries(key):
                     continue
 
+                (start, end) = match.span(1)
                 message = f'Item "{key}" does not exist in library'
                 severity = DiagnosticSeverity.Warning
                 diagnostics.append(
@@ -213,8 +214,8 @@ class BibliLanguageServer(LanguageServer):
                         message=message,
                         severity=severity,
                         range=Range(
-                            start=Position(line=idx, character=match.pos),
-                            end=Position(line=idx, character=match.endpos),
+                            start=Position(line=idx, character=start),
+                            end=Position(line=idx, character=end),
                         ),
                     )
                 )

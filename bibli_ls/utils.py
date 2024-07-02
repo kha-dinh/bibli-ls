@@ -14,7 +14,8 @@ def cite_at_position(
 
     # TODO: Check if encapsulated in "[]"
     for match in re.finditer(config.cite.regex, line):
-        if match.pos <= position.character and match.endpos >= position.character:
+        (start, end) = match.span(1)
+        if start <= position.character and end >= position.character:
             return match.group(1)
 
     return None
