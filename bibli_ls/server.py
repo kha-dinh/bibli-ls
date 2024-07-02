@@ -313,19 +313,27 @@ def goto_definition(ls: BibliLanguageServer, params: DefinitionParams):
             # match = re.search(ls.config.cite.regex, document.lines[entry.start_line])
             library_uri = f"file://{library.path}"
             library_doc = ls.workspace.get_text_document(library_uri)
-            line = library_doc.lines[entry.start_line]
-            start = line.find(cite)
-            # ls.show_message(line)
 
-            ls.show_document(
-                ShowDocumentParams(
-                    library_uri,
-                    selection=Range(
-                        start=Position(entry.start_line, start),
-                        end=Position(entry.start_line, start + len(cite)),
-                    ),
-                )
-            )
+            neightbour_lines = library_doc.lines[
+                entry.start_line - 2 : entry.start_line + 2
+            ]
+
+            # bibtexparse is not very accurate on identifying start line, so we search
+            # for it neighboring lines
+            for idx, line in enumerate(neightbour_lines):
+                start = line.find(cite)
+                if start != -1:
+                    actual_start_line = entry.start_line + idx - 2
+                    ls.show_document(
+                        ShowDocumentParams(
+                            library_uri,
+                            selection=Range(
+                                start=Position(actual_start_line, start),
+                                end=Position(actual_start_line, start + len(cite)),
+                            ),
+                        )
+                    )
+                    return
 
 
 @SERVER.feature(TEXT_DOCUMENT_HOVER)
