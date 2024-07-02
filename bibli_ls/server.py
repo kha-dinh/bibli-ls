@@ -266,15 +266,6 @@ def find_references(ls: BibliLanguageServer, params: ReferenceParams):
     if not cite:
         return
 
-    # TODO: do we need to check exist in library?
-    # exist = False
-    # for lib in LIBRARIES:
-    #     if lib.library.entries_dict.__contains__(word):
-    #         exist = True
-    #         break
-    # if not exist:
-    #     return
-
     # Include prefix for more accuracy
     rg = Ripgrepy(ls.config.cite.prefix + cite, root_path)
     result = rg.with_filename().json().run().as_dict
@@ -364,7 +355,7 @@ def hover(ls: BibliLanguageServer, params: HoverParams):
                     end=Position(line=pos.line + 1, character=0),
                 ),
             )
-        return None
+    return None
 
 
 @SERVER.feature(

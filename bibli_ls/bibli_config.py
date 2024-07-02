@@ -8,7 +8,7 @@ DEFAULT_HEADER_FORMAT = [
     "───────────────────────────────────────────────────────────────────────────────────",
 ]
 DEFAULT_CITE_PREFIX = "@"
-DEFAULT_CITE_REGEX_STR = DEFAULT_CITE_PREFIX + "([A-Za-z_0-9]+)"
+DEFAULT_CITE_REGEX_STR = r"@([A-Za-z_0-9]+)\b"
 
 DEFAULT_WRAP = 80
 DEFAULT_CHAR_LIMIT = 400
