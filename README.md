@@ -81,3 +81,16 @@ lspconfig.bibli_ls.setup({})
 - More LSP capabilities
   - [mkdnflow.nvim](https://github.com/jakewvincent/mkdnflow.nvim)-like opening of URL
   - Code actions
+
+### Building from source
+
+From the root directory
+
+```bash
+pyproject-build
+pip install dist/bibli_ls-{version}-py3-none-any.whl # --force-reinstall if needed
+# Or for Arch
+pipx install . # --force-reinstall if needed
+
+
+```
