@@ -14,6 +14,7 @@ from lsprotocol.types import (
     TEXT_DOCUMENT_DID_CHANGE,
     TEXT_DOCUMENT_DID_OPEN,
     TEXT_DOCUMENT_HOVER,
+    TEXT_DOCUMENT_IMPLEMENTATION,
     TEXT_DOCUMENT_REFERENCES,
     CompletionItem,
     CompletionItemKind,
@@ -326,6 +327,26 @@ def goto_definition(ls: BibliLanguageServer, params: DefinitionParams):
                         )
                     )
                     return
+
+
+@SERVER.feature(TEXT_DOCUMENT_IMPLEMENTATION)
+def goto_implementation(ls: BibliLanguageServer, params: DefinitionParams):
+    """textDocument/definition: Jump to an object's type definition."""
+    document = ls.workspace.get_text_document(params.text_document.uri)
+
+    cite = cite_at_position(document, params.position, ls.config)
+    if not cite:
+        return
+
+    for library in ls.libraries:
+        entry = library.library.entries_dict.get(cite)
+        if entry and entry.fields_dict.get("url"):
+            ls.show_document(
+                ShowDocumentParams(entry.fields_dict["url"].value, external=True)
+            )
+
+            return
+    return None
 
 
 @SERVER.feature(TEXT_DOCUMENT_HOVER)
