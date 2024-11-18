@@ -16,13 +16,14 @@ A [Language Server](https://microsoft.github.io/language-server-protocol/) that 
 
 ## Supported LSP capabilities
 
-| LSP Features                                                                                                                                    | Behavior                                                                                                                 |
-| ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| [textDocument/definition](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_definition)  | Go to the first definition found in the `.bib` files.                                                                    |
-| [textDocument/references](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_references)  | Find appearance of `prefix + ID` with ripgrep.                                                                           |
-| [textDocument/hover](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_hover)            | Show metadata from `.bib` files based on configurations.                                                                 |
-| [textDocument/completion](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_completion)  | Triggered by the `cite_prefix` configuration. Show completion of citation ID for bibtex entries and their documentation. |
-| [textDocument/diagnoistic](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_completion) | Find citations without a proper entry in the bibfile.                                                                    |
+| LSP Features                                                                                                                                           | Behavior                                                                                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| [textDocument/definition](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_definition)         | Go to the first definition found in the `.bib` files.                                                                    |
+| [textDocument/references](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_references)         | Find appearance of `prefix + ID` with ripgrep.                                                                           |
+| [textDocument/hover](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_hover)                   | Show metadata from `.bib` files based on configurations.                                                                 |
+| [textDocument/completion](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_completion)         | Triggered by the `cite_prefix` configuration. Show completion of citation ID for bibtex entries and their documentation. |
+| [textDocument/diagnoistic](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_completion)        | Find citations without a proper entry in the bibfile.                                                                    |
+| [textDocument/implementation](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_implementation) | (Non-standard) Open `url` field of the citation in an external browser (TODO: make configurable).                        |
 
 ## Configuration
 
@@ -61,13 +62,19 @@ local lspconfig = require("lspconfig")
 local configs = require("lspconfig.configs")
 
 if not configs.bibli_ls then
- configs.bibli_ls = {
-  default_config = {
-   cmd = { "bibli_ls" },
-   filetypes = { "markdown" },
-   root_dir = lspconfig.util.root_pattern(".bibli.toml"),
-  },
- }
+  configs.bibli_ls = {
+    default_config = {
+      cmd = { "bibli_ls" },
+      filetypes = { "markdown" },
+      root_dir = lspconfig.util.root_pattern(".bibli.toml"),
+      -- Optional: visit the URL of the citation with LSP DocumentImplementation
+      on_attach = function(client, bufnr)
+        vim.keymap.set({ "n" }, "<cr>", function()
+          vim.lsp.buf.implementation()
+        end)
+      end,
+    },
+  }
 end
 
 lspconfig.bibli_ls.setup({})
@@ -84,7 +91,7 @@ lspconfig.bibli_ls.setup({})
 
 ### Building from source
 
-From the root directory
+From the root directory:
 
 ```bash
 pyproject-build
