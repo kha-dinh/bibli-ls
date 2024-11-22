@@ -42,6 +42,10 @@ from pygls.protocol.language_server import LanguageServerProtocol, lsp_method
 from pygls.server import LanguageServer
 from pygls.workspace.text_document import TextDocument
 
+from bibli_ls.backends.backend import BibliBackend
+from bibli_ls.backends.bibtex_backend import BibfileBackend
+from bibli_ls.backends.zotero_backend import ZoteroBackend
+
 from . import __version__
 from .bibli_config import BibliBibDatabase, BibliTomlConfig
 from .utils import build_doc_string, cite_at_position
@@ -51,26 +55,47 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
     """Override some built-in functions."""
 
     _server: "BibliLanguageServer"
+    _initialize_result: InitializeResult
+    _backend: BibliBackend
 
     @lsp_method(INITIALIZE)
     def lsp_initialize(self, params: InitializeParams) -> InitializeResult:
         from watchdog.observers import Observer
 
         self.observer = Observer()
-        server = self._server
 
         initialize_result: InitializeResult = super().lsp_initialize(params)
+        self._initialize_result = initialize_result
 
         if params.root_path:
             self.try_load_configs_file(root_path=params.root_path)
 
-        # TODO: Redo these init if config is reloaded
-        self.update_trigger_characters(initialize_result, server.config.cite.prefix)
-        self.schedule_file_watcher()
-        self.try_find_bibfiles()
-        self.parse_bibfiles()
-
         return initialize_result
+
+    def apply_config(self):
+        self.update_trigger_characters()
+        self.schedule_file_watcher()
+
+        backend_config = self._server.config.backend
+        self.show_message(f"Backed type: `{backend_config.backend_type}`")
+
+        self.show_message("Reloading libraries")
+        self._server.libraries.clear()
+        if backend_config.backend_type == "zotero_api":
+            self._backend = ZoteroBackend(
+                backend_config.zotero_api,
+                lsp=self,
+            )
+            self._server.libraries += self._backend.get_libraries()
+
+        elif backend_config.backend_type == "bibfile":
+            self._backend = BibfileBackend(backend_config.bibfile, lsp=self)
+            self._server.libraries += self._backend.get_libraries()
+        else:
+            self.show_message(
+                f"Unknown backend type {backend_config.backend_type} ",
+                MessageType.Error,
+            )
 
     def try_load_configs_file(self, root_path=None, config_file=None):
         """Load config file located at the root of the project.
@@ -89,22 +114,18 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
             f = open(config_file, "rb")
             self._server.config = tosholi.load(BibliTomlConfig, f)
             self._server.config_file = config_file
-            self.show_message(f"Loaded configs from {config_file}")
+            self.show_message(f"Loaded configs from `{config_file}`")
         except FileNotFoundError:
             self.show_message("No config file found, using default settings\n")
 
-    def try_find_bibfiles(self):
-        """TODO: Get all bibtex files found if config is not given."""
-        if self._server.config.bibfiles == []:
-            pass
+        # Update configurations based on the config
+        self.apply_config()
 
-        if self._server.config.bibfiles == []:
-            self.show_message("No bibfile found.", MessageType.Warning)
-
-    def update_trigger_characters(self, initialize_result, prefix):
+    def update_trigger_characters(self):
         """Add cite prefix to list of trigger characters."""
         # Register additional trigger characters
-        completion_provider = initialize_result.capabilities.completion_provider
+        completion_provider = self._initialize_result.capabilities.completion_provider
+        prefix = self._server.config.cite.prefix
         if completion_provider:
             if completion_provider.trigger_characters:
                 completion_provider.trigger_characters.append(prefix)
@@ -132,12 +153,19 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
                 if not event.is_directory:
                     for file in self.lsp._server.config.bibfiles:
                         if event.src_path == os.path.abspath(file):
-                            self.lsp.show_message(f"Bibfile {event.src_path} modified")
-                            self.lsp.parse_bibfiles()
+                            self.lsp.show_message(
+                                f"Bibfile `{event.src_path}` modified"
+                            )
+                            self.lsp._server.libraries = (
+                                self.lsp._backend.get_libraries()
+                            )
+
                             self.last_event = time.time_ns()
 
                     if event.src_path == os.path.abspath(self.lsp._server.config_file):
-                        self.lsp.show_message(f"Config file {event.src_path} modified")
+                        self.lsp.show_message(
+                            f"Config file `{event.src_path}` modified"
+                        )
                         self.lsp.try_load_configs_file(
                             config_file=self.lsp._server.config_file
                         )
@@ -149,25 +177,6 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
             recursive=True,
         )
         self.observer.start()
-
-    def parse_bibfiles(self):
-        """Parse the given bibtex files."""
-
-        self._server.libraries.clear()
-        for bibfile_path in self._server.config.bibfiles:
-            if not os.path.isabs(bibfile_path) and self.workspace.root_path:
-                bibfile_path = os.path.join(self.workspace.root_path, bibfile_path)
-
-            with open(bibfile_path, "r") as bibtex_file:
-                library: Library = bibtexparser.parse_string(bibtex_file.read())
-                len = library.entries.__len__()
-                self.show_message(f"loaded {len} entries from {bibfile_path}")
-                self._server.libraries.append(
-                    BibliBibDatabase(
-                        library,
-                        bibfile_path,
-                    )
-                )
 
 
 class BibliLanguageServer(LanguageServer):
