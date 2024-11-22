@@ -12,6 +12,7 @@ requires-python = ">=3.8"
 dependencies = [
   "bibtexparser==2.0.0b4",
   "watchdog",
+  "pyzotero",
   "py_markdown_table",
   "pygls",
   "tosholi",

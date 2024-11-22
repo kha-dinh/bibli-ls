@@ -18,7 +18,7 @@ DEFAULT_CHAR_LIMIT = 400
 @dataclass
 class BibliBibDatabase:
     library: Library
-    path: str
+    path: str | None
 
 
 @dataclass
@@ -51,9 +51,35 @@ class CompletionConfig:
 
 
 @dataclass
+class BackendBibfileConfig:
+    bibfiles: list[str] = field(default_factory=lambda: [])
+
+
+@dataclass
+class BackendZoteroAPIConfig:
+    # libraries: list[str] = field(default_factory=lambda: [])
+    # libraries: list[str] = field(default_factory=lambda: [])
+    library_id: str = ""
+    library_type: str = "user"
+    api_key: str = "NONE"
+
+
+@dataclass
+class BackendConfig:
+    backend_type: str = "bibfile"
+    bibfile: BackendBibfileConfig = field(
+        default_factory=lambda: BackendBibfileConfig()
+    )
+    zotero_api: BackendZoteroAPIConfig = field(
+        default_factory=lambda: BackendZoteroAPIConfig()
+    )
+
+
+@dataclass
 class BibliTomlConfig:
     """Runtime configurations used by bibli in one place"""
 
+    backend: BackendConfig = field(default_factory=lambda: BackendConfig())
     bibfiles: list[str] = field(default_factory=lambda: [])
     hover: HoverConfig = field(default_factory=lambda: HoverConfig())
     completion: CompletionConfig = field(default_factory=lambda: CompletionConfig())
