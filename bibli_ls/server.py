@@ -89,7 +89,7 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
             f = open(config_file, "rb")
             self._server.config = tosholi.load(BibliTomlConfig, f)
             self._server.config_file = config_file
-            self.show_message(f"Loaded configs from {config_file}")
+            self.show_message(f"Loaded configs from `{config_file}`")
         except FileNotFoundError:
             self.show_message("No config file found, using default settings\n")
 
@@ -132,12 +132,16 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
                 if not event.is_directory:
                     for file in self.lsp._server.config.bibfiles:
                         if event.src_path == os.path.abspath(file):
-                            self.lsp.show_message(f"Bibfile {event.src_path} modified")
                             self.lsp.parse_bibfiles()
+                            self.lsp.show_message(
+                                f"Bibfile `{event.src_path}` modified"
+                            )
                             self.last_event = time.time_ns()
 
                     if event.src_path == os.path.abspath(self.lsp._server.config_file):
-                        self.lsp.show_message(f"Config file {event.src_path} modified")
+                        self.lsp.show_message(
+                            f"Config file `{event.src_path}` modified"
+                        )
                         self.lsp.try_load_configs_file(
                             config_file=self.lsp._server.config_file
                         )
