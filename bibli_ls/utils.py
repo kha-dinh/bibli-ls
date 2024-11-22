@@ -4,7 +4,7 @@ from lsprotocol.types import Position
 import re
 from pygls.workspace import TextDocument
 
-from .bibli_config import BibliBibDatabase, BibliTomlConfig, DocFormatingConfig
+from .bibli_config import BibliTomlConfig, DocFormatingConfig
 
 
 def cite_at_position(
