@@ -30,10 +30,20 @@ A [Language Server](https://microsoft.github.io/language-server-protocol/) that 
 Create a configuration file `.bibli.toml` at the root of your note directory. Here is a sample configuration:
 
 ```toml
-bibfiles = ["references.bib"] # Relative/Absolute path to your bibliographies
+
+[backend]
+backend_type = "zotero_api" # Available backends: "bibfile", "zotero_api"
+
+[backend.bibfile]
+bibfiles = ["references.bib"]
+
+[backend.zotero_api]
+library_id = "5123456" # Your library ID
+library_type = "user" # "user"" or "group"
+api_key = "XXXXXXXXXXXXXXXXXXXXXXXX"
 
 [cite]
-prefix = "@" #
+prefix = "@" # e.g., "@john2024paper"
 
 [hover.doc_format]
 show_fields = ["abstract", "year", "booktitle", "url"]
@@ -51,6 +61,9 @@ Install the latest release of `bibli-ls` through `pip`:
 
 ```bash
 pip install bibli-ls
+
+# Alternatively, on Arch:
+pipx install bibli-ls
 ```
 
 ### Neovim
@@ -80,16 +93,17 @@ end
 lspconfig.bibli_ls.setup({})
 ```
 
-### Planned Features (TODO)
+## Backends
 
-- Universal: Works with any note format
-- LSP-native configurations
-- Per-document bibliographies
-- More LSP capabilities
-  - [mkdnflow.nvim](https://github.com/jakewvincent/mkdnflow.nvim)-like opening of URL
-  - Code actions
+Currently, Bibli supports `bibfile` and `zotero_api` backends.
 
-### Building from source
+`bibfile` backend loads the library from a local bibtex file.
+
+`zotero_api` backend connects directly to your Zotero web library, removing the need for maintaining separated bibfile.
+
+- [More on setting up citation keys](/docs/custom-cite-keys.md)
+
+## Building from source
 
 From the root directory:
 
