@@ -3,8 +3,6 @@ import re
 from pathlib import Path
 from typing import Any, Optional
 
-from bibtexparser import bibtexparser
-from bibtexparser.library import Library
 from bibtexparser.model import Entry
 from lsprotocol.types import (
     INITIALIZE,
@@ -354,7 +352,6 @@ def goto_implementation(ls: BibliLanguageServer, params: DefinitionParams):
                 ShowDocumentParams(entry.fields_dict["url"].value, external=True)
             )
 
-            return
     return None
 
 
@@ -396,6 +393,7 @@ def hover(ls: BibliLanguageServer, params: HoverParams):
 )
 def completion(
     ls: BibliLanguageServer, params: CompletionParams
+    ls: BibliLanguageServer, _: CompletionParams
 ) -> Optional[CompletionList]:
     """textDocument/completion: Returns completion items."""
 
