@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field
 from bibtexparser.library import Library
+from lsprotocol.types import MessageType
+from pygls.protocol.language_server import LanguageServerProtocol
 
 
 DEFAULT_HEADER_FORMAT = [
@@ -31,7 +33,7 @@ class DocFormatingConfig:
 
     wrap: int = DEFAULT_WRAP
     character_limit: int = DEFAULT_CHAR_LIMIT
-    format: str = "markdown"
+    format: str = "list"
     show_fields: list[str] = field(default_factory=lambda: [])
     header_format: list[str] | str = field(
         default_factory=lambda: DEFAULT_HEADER_FORMAT
@@ -66,6 +68,14 @@ class BackendConfig:
     bibfiles: list[str] = field(default_factory=lambda: [])
 
 
+# TODO: Is there a better way to do this?
+EXPECTED_VALUES = {
+    "backend_type": ["zotero_api", "bibfile"],
+    "library_type": ["user", "group"],
+    "doc_format.format": ["table", "list"],
+}
+
+
 @dataclass
 class BibliTomlConfig:
     """Runtime configurations used by bibli in one place"""
@@ -75,3 +85,32 @@ class BibliTomlConfig:
     hover: HoverConfig = field(default_factory=lambda: HoverConfig())
     completion: CompletionConfig = field(default_factory=lambda: CompletionConfig())
     cite: CiteConfig = field(default_factory=lambda: CiteConfig())
+
+    def check_expected(self, field, value, lsp) -> bool:
+        if value not in EXPECTED_VALUES[field]:
+            lsp.show_message(
+                f"Unexpected value in {field}: {value}",
+                MessageType.Error,
+            )
+            return False
+        return True
+
+    def sanitize(self, lsp: LanguageServerProtocol) -> bool:
+        valid = True
+        for _, v in self.backend.items():
+            valid |= self.check_expected("backend_type", v.backend_type, lsp)
+            match v.backend_type:
+                case "zotero_api":
+                    valid |= self.check_expected("library_type", v.library_type, lsp)
+                case "bibfile":
+                    pass
+
+        valid |= self.check_expected(
+            "doc_format.format", self.hover.doc_format.format, lsp
+        )
+
+        valid |= self.check_expected(
+            "doc_format.format", self.completion.doc_format.format, lsp
+        )
+
+        return valid

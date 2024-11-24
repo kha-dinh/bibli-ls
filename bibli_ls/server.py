@@ -112,9 +112,12 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
             self._server.config = tosholi.load(BibliTomlConfig, f)
             self._server.config_file = config_file
             self.show_message(f"Loaded configs from `{config_file}`")
+
         except FileNotFoundError:
             self.show_message("No config file found, using default settings\n")
 
+        if not self._server.config.sanitize(self):
+            self.show_message("Invalid config found\n", MessageType.Error)
         # Update configurations based on the config
         self.apply_config()
 
