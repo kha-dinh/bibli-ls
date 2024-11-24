@@ -4,22 +4,16 @@ from lsprotocol.types import MessageType
 from pygls.protocol.language_server import LanguageServerProtocol
 from pyzotero.zotero import bibtexparser
 from bibli_ls.backends.backend import BibliBackend
-from bibli_ls.bibli_config import BackendBibfileConfig, BibliBibDatabase
+from bibli_ls.bibli_config import BackendConfig, BibliBibDatabase
 
 
 class BibfileBackend(BibliBackend):
-    _lsp: LanguageServerProtocol
-    _config: BackendBibfileConfig
+    def __init__(self, config: BackendConfig, lsp: LanguageServerProtocol) -> None:
+        super().__init__(config, lsp)
 
-    def __init__(
-        self, config: BackendBibfileConfig, lsp: LanguageServerProtocol
-    ) -> None:
-        self._config = config
         """TODO: Get all bibtex files found if config is not given."""
         if config.bibfiles == []:
             lsp.show_message("No bibfile found.", MessageType.Warning)
-
-        super().__init__(lsp)
 
     def get_libraries(self):
         libraries = []

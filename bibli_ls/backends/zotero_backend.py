@@ -2,6 +2,7 @@ from multiprocessing.pool import AsyncResult
 import os
 from bibtexparser.middlewares.names import List
 from lsprotocol.types import (
+    MessageType,
     WorkDoneProgressBegin,
     WorkDoneProgressEnd,
     WorkDoneProgressReport,
@@ -10,7 +11,7 @@ from pygls.progress import Progress
 from pyzotero.zotero import Zotero
 from bibtexparser.library import Library
 from bibli_ls.backends.backend import BibliBackend
-from bibli_ls.bibli_config import BackendZoteroAPIConfig, BibliBibDatabase
+from bibli_ls.bibli_config import BackendConfig, BibliBibDatabase
 from bibtexparser import bibtexparser
 
 import multiprocessing
@@ -19,12 +20,19 @@ import multiprocessing
 class ZoteroBackend(BibliBackend):
     _zot: Zotero
 
-    def __init__(self, config: BackendZoteroAPIConfig, lsp):
+    def __init__(self, config: BackendConfig, lsp):
+        super().__init__(config, lsp)
+        if config.library_id == "":
+            lsp.show_message("Library ID not specified", MessageType.Error)
+            return
+
+        if config.api_key is None:
+            lsp.show_message("API key not specified", MessageType.Error)
+            return
         lsp.show_message(
             f"Initializing zotero API connection library_id `{config.library_id}`, library_type `{config.library_type}`"
         )
         self._zot = Zotero(config.library_id, config.library_type, config.api_key)
-        self._lsp = lsp
 
     def get_libraries(
         self,

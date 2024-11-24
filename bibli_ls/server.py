@@ -78,25 +78,23 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
         self.schedule_file_watcher()
 
         backend_config = self._server.config.backend
-        self.show_message(f"Backed type: `{backend_config.backend_type}`")
 
-        self.show_message("Reloading libraries")
         self._server.libraries.clear()
-        if backend_config.backend_type == "zotero_api":
-            self._backend = ZoteroBackend(
-                backend_config.zotero_api,
-                lsp=self,
-            )
-            self._server.libraries += self._backend.get_libraries()
+        for k, v in backend_config.items():
+            self.show_message(f"Processing backend `{k}` type `{v.backend_type}`")
+            if v.backend_type == "zotero_api":
+                self._backend = ZoteroBackend(v, lsp=self)
+                self._server.libraries += self._backend.get_libraries()
 
-        elif backend_config.backend_type == "bibfile":
-            self._backend = BibfileBackend(backend_config.bibfile, lsp=self)
-            self._server.libraries += self._backend.get_libraries()
-        else:
-            self.show_message(
-                f"Unknown backend type {backend_config.backend_type} ",
-                MessageType.Error,
-            )
+            elif v.backend_type == "bibfile":
+                self._backend = BibfileBackend(v, lsp=self)
+                self._server.libraries += self._backend.get_libraries()
+
+            else:
+                self.show_message(
+                    f"Unknown backend type {v.backend_type} ",
+                    MessageType.Error,
+                )
 
     def try_load_configs_file(self, root_path=None, config_file=None):
         """Load config file located at the root of the project.
@@ -404,22 +402,28 @@ def completion(
     prefix = ls.config.cite.prefix
     completion_items = []
 
+    processed_keys = {}
     for library in ls.libraries:
         for k, entry in library.library.entries_dict.items():
             key = prefix + k
             text_edits = []
             doc_string = build_doc_string(entry, ls.config.completion.doc_format)
-            completion_items.append(
-                CompletionItem(
-                    key,
-                    additional_text_edits=text_edits,
-                    kind=CompletionItemKind.Field,
-                    documentation=MarkupContent(
-                        kind=MarkupKind.Markdown,
-                        value=doc_string,
-                    ),
-                )
             )
+
+            # Avoid showing duplicated entries
+            if not processed_keys.get(key):
+                processed_keys[key] = True
+                completion_items.append(
+                    CompletionItem(
+                        key,
+                        additional_text_edits=text_edits,
+                        kind=CompletionItemKind.Field,
+                        documentation=MarkupContent(
+                            kind=MarkupKind.Markdown,
+                            value=doc_string,
+                        ),
+                    )
+                )
 
     return (
         CompletionList(is_incomplete=False, items=completion_items)
