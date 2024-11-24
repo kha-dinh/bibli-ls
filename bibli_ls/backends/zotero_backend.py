@@ -1,3 +1,5 @@
+from multiprocessing.pool import AsyncResult
+import os
 from bibtexparser.middlewares.names import List
 from lsprotocol.types import (
     WorkDoneProgressBegin,
@@ -10,6 +12,8 @@ from bibtexparser.library import Library
 from bibli_ls.backends.backend import BibliBackend
 from bibli_ls.bibli_config import BackendZoteroAPIConfig, BibliBibDatabase
 from bibtexparser import bibtexparser
+
+import multiprocessing
 
 
 class ZoteroBackend(BibliBackend):
@@ -27,9 +31,10 @@ class ZoteroBackend(BibliBackend):
     ) -> List[BibliBibDatabase]:
         count = self._zot.count_items()
         loaded = 0
-        limit = 50
+        limit = 10
 
         library = Library()
+        pool = multiprocessing.Pool(16)
 
         progress = Progress(self._lsp)
         progress.create("bibli")
@@ -37,11 +42,21 @@ class ZoteroBackend(BibliBackend):
             "bibli",
             WorkDoneProgressBegin(
                 title=f"Retriving online library from `{self._zot.library_id}`",
-                message="message",
+                message="libraries loaded",
             ),
         )
-        while loaded < count:
-            items = self._zot.items(start=loaded, limit=limit, content="bibtex")
+
+        results: List[AsyncResult] = []
+        for i in range(0, count, limit):
+            results.append(
+                pool.apply_async(
+                    self._zot.items,
+                    kwds={"start": i, "limit": limit, "content": "bibtex"},
+                )
+            )
+
+        for r in results:
+            items = r.get()
             loaded += len(items)
             items_str = "\n".join(items)
             bibtexparser.parse_string(items_str, library=library)
@@ -49,13 +64,26 @@ class ZoteroBackend(BibliBackend):
             progress.report(
                 "bibli",
                 WorkDoneProgressReport(
-                    message="Libraries loaded",
+                    message="libraries loaded",
                     percentage=int(loaded * 100 / count),
                 ),
             )
+
         progress.end(
             "bibli",
             WorkDoneProgressEnd(message="Done"),
         )
 
-        return [BibliBibDatabase(library, None)]
+        pool.close()
+        pool.join()
+
+        # Writing to file
+        filename = f".zotero_api_{self._zot.library_id}.bib"
+        root_path = self._lsp.workspace.root_path
+        cache_file = None
+        if root_path:
+            cache_file = os.path.join(root_path, filename)
+            self._lsp.show_message(f"Writing to bibfile to `{cache_file}`")
+            bibtexparser.write_file(cache_file, library)
+
+        return [BibliBibDatabase(library, cache_file)]

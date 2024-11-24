@@ -16,4 +16,5 @@ class BibliBackend:
 
     @abstractmethod
     def get_libraries(self) -> List[BibliBibDatabase]:
+        """Return the libraries based on backend config"""
         pass
