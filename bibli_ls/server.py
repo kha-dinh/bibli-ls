@@ -20,6 +20,7 @@ from lsprotocol.types import (
     CompletionList,
     CompletionOptions,
     CompletionParams,
+    Definition,
     DefinitionParams,
     Diagnostic,
     DiagnosticSeverity,
@@ -308,33 +309,35 @@ def goto_definition(ls: BibliLanguageServer, params: DefinitionParams):
     if not cite:
         return
 
+    definitions: Definition = []
     for library in ls.libraries:
         entry = library.library.entries_dict.get(cite)
-        if entry and entry.start_line:
-            # match = re.search(ls.config.cite.regex, document.lines[entry.start_line])
-            library_uri = f"file://{library.path}"
-            library_doc = ls.workspace.get_text_document(library_uri)
+        library_uri = f"file://{library.path}"
 
-            neightbour_lines = library_doc.lines[
-                entry.start_line - 2 : entry.start_line + 2
-            ]
+        if entry and library.path:
+            from ripgrepy import Ripgrepy
 
-            # bibtexparse is not very accurate on identifying start line, so we search
-            # for it neighboring lines
-            for idx, line in enumerate(neightbour_lines):
-                start = line.find(cite)
-                if start != -1:
-                    actual_start_line = entry.start_line + idx - 2
-                    ls.show_document(
-                        ShowDocumentParams(
-                            library_uri,
-                            selection=Range(
-                                start=Position(actual_start_line, start),
-                                end=Position(actual_start_line, start + len(cite)),
+            rg = Ripgrepy(cite, library.path)
+            result = rg.with_filename().json().run().as_dict
+            for res in result:
+                if res["type"] == "match":
+                    submatch = res["data"]["submatches"][0]
+                    line_no = res["data"]["line_number"]
+                    definitions.append(
+                        Location(
+                            uri=library_uri,
+                            range=Range(
+                                start=Position(
+                                    line=line_no - 1, character=submatch["start"]
+                                ),
+                                end=Position(
+                                    line=line_no - 1, character=submatch["end"] - 1
+                                ),
                             ),
                         )
                     )
-                    return
+
+    return definitions
 
 
 @SERVER.feature(TEXT_DOCUMENT_IMPLEMENTATION)
