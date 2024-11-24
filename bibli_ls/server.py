@@ -370,7 +370,9 @@ def hover(ls: BibliLanguageServer, params: HoverParams):
     for library in ls.libraries:
         entry = library.library.entries_dict.get(cite)
         if entry:
-            hover_text = build_doc_string(entry, ls.config.hover.doc_format)
+            hover_text = build_doc_string(
+                entry, ls.config.hover.doc_format, library.path
+            )
 
             return Hover(
                 contents=MarkupContent(
@@ -392,7 +394,6 @@ def hover(ls: BibliLanguageServer, params: HoverParams):
     ),
 )
 def completion(
-    ls: BibliLanguageServer, params: CompletionParams
     ls: BibliLanguageServer, _: CompletionParams
 ) -> Optional[CompletionList]:
     """textDocument/completion: Returns completion items."""
@@ -405,7 +406,8 @@ def completion(
         for k, entry in library.library.entries_dict.items():
             key = prefix + k
             text_edits = []
-            doc_string = build_doc_string(entry, ls.config.completion.doc_format)
+            doc_string = build_doc_string(
+                entry, ls.config.completion.doc_format, library.path
             )
 
             # Avoid showing duplicated entries

@@ -7,6 +7,10 @@ DEFAULT_HEADER_FORMAT = [
     "_{author}_",
     "───────────────────────────────────────────────────────────────────────────────────",
 ]
+DEFAULT_FOOTER_FORMAT = [
+    "───────────────────────────────────────────────────────────────────────────────────",
+    "\n" + "\t" * 20 + "from `{bibfile}`",
+]
 DEFAULT_CITE_PREFIX = "@"
 DEFAULT_CITE_REGEX_STR = r"@([A-Za-z_0-9]+)\b"
 
@@ -31,6 +35,9 @@ class DocFormatingConfig:
     show_fields: list[str] = field(default_factory=lambda: [])
     header_format: list[str] | str = field(
         default_factory=lambda: DEFAULT_HEADER_FORMAT
+    )
+    footer_format: list[str] | str = field(
+        default_factory=lambda: DEFAULT_FOOTER_FORMAT
     )
 
 

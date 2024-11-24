@@ -35,13 +35,18 @@ def preprocess_bib_entry(entry: Entry, config: DocFormatingConfig):
             entry.set_field(Field(f.key, f.value))
 
 
-def build_doc_string(entry: Entry, config: DocFormatingConfig):
+def build_doc_string(
+    entry: Entry, config: DocFormatingConfig, bibfile: str | None = None
+):
     import mdformat
 
     preprocess_bib_entry(entry, config)
 
     field_dict = {f.key: f.value for f in entry.fields}
+
     field_dict["entry_type"] = entry.entry_type
+    if bibfile:
+        field_dict["bibfile"] = bibfile
 
     doc_string = ""
 
@@ -63,9 +68,9 @@ def build_doc_string(entry: Entry, config: DocFormatingConfig):
     # Entry type no longer needed
     field_dict.pop("entry_type")
     if config.show_fields == []:
-        pass
+        show_field_dict = {k: v for k, v in field_dict.items()}
     else:
-        field_dict = {
+        show_field_dict = {
             k: v for k, v in field_dict.items() if config.show_fields.count(k) > 0
         }
 
@@ -73,7 +78,7 @@ def build_doc_string(entry: Entry, config: DocFormatingConfig):
         case "table":
             from py_markdown_table.markdown_table import markdown_table
 
-            table_content = [{"Key": k, "Value": v} for k, v in field_dict.items()]
+            table_content = [{"Key": k, "Value": v} for k, v in show_field_dict.items()]
             # NOTE: sometimes table formatting fails with long entries
             table = (
                 markdown_table(table_content)
@@ -90,7 +95,7 @@ def build_doc_string(entry: Entry, config: DocFormatingConfig):
             )
             doc_string += table
         case "list":
-            for k, v in field_dict.items():
+            for k, v in show_field_dict.items():
                 doc_string += f"- __{k}__: {v}\n"
 
             # Do one last beautifying for list
@@ -98,5 +103,18 @@ def build_doc_string(entry: Entry, config: DocFormatingConfig):
                 doc_string,
                 options={"wrap": config.wrap},
             )
+
+    while True:
+        try:
+            if isinstance(config.footer_format, List):
+                doc_string += "\n".join(config.footer_format).format(**field_dict)
+            else:
+                assert_type(config.footer_format, str)
+                doc_string += config.footer_format.format(**field_dict)
+        except KeyError as e:
+            # Unknown key in the header format
+            field_dict[e.args[0]] = "Unknown"
+            continue
+        break
 
     return doc_string
