@@ -32,12 +32,13 @@ Create a configuration file `.bibli.toml` at the root of your note directory. He
 ```toml
 
 [backend]
-backend_type = "zotero_api" # Available backends: "bibfile", "zotero_api"
-
-[backend.bibfile]
+# Backends can be of any names
+[backend.mylib]
+backend_type = "bibfile" # Available backends: "bibfile", "zotero_api"
 bibfiles = ["references.bib"]
 
-[backend.zotero_api]
+[backend.my_lab_lib]
+backend_type = "zotero_api"
 library_id = "5123456" # Your library ID
 library_type = "user" # "user"" or "group"
 api_key = "XXXXXXXXXXXXXXXXXXXXXXXX"
@@ -99,7 +100,7 @@ Currently, Bibli supports `bibfile` and `zotero_api` backends.
 
 `bibfile` backend loads the library from a local bibtex file.
 
-`zotero_api` backend connects directly to your Zotero web library, removing the need for maintaining separated bibfile.
+`zotero_api` backend connects directly to your Zotero web library, removing the need for maintaining separated bibfiles.
 
 - [More on setting up citation keys](/docs/custom-cite-keys.md)
 
