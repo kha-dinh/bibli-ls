@@ -1,9 +1,20 @@
 import argparse
+from importlib.metadata import version
 import logging
 import sys
+from pathlib import Path
 
-from . import __version__
-from .server import SERVER
+file = Path(__file__).resolve()
+parent, root = file.parent, file.parents[1]
+sys.path.append(str(root))
+
+try:
+    sys.path.remove(str(parent))
+except ValueError:
+    pass
+
+__version__ = version("bibli_ls")
+from bibli_ls.server import SERVER
 
 
 def cli() -> None:
@@ -71,7 +82,8 @@ Notes:
     args = parser.parse_args()
     if args.version:
         print(__version__)
-        sys.exit(0)
+        # sys.exit(0)
+        return
 
     if args.tcp and args.ws:
         print(
@@ -99,3 +111,7 @@ Notes:
         SERVER.start_ws(host=args.host, port=args.port)
     else:
         SERVER.start_io()
+
+
+if __name__ == "__main__":
+    cli()
