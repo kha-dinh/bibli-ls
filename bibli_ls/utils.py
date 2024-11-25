@@ -1,4 +1,5 @@
-from typing import List, assert_type
+from typing import List
+from typing_extensions import assert_type
 from bibtexparser.model import Entry, Field
 from lsprotocol.types import Position
 import re
