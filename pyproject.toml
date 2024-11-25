@@ -31,3 +31,7 @@ Issues = "https://github.com/kha-dinh/bibli-ls/issues"
 
 [project.scripts]
 bibli_ls = "bibli_ls.cli:cli"
+
+[tool.pytest.ini_options]
+# addopts = "-ra -q"
+testpaths = ["tests"]

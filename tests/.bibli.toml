@@ -1,0 +1,15 @@
+[backend]
+[backend.bibfile]
+backend_type = "bibfile"
+bibfiles = ["references.bib", "references_other.bib"]
+
+[cite]
+prefix = "@"
+
+[hover.doc_format]
+show_fields = ["abstract", "year", "booktitle", "url"]
+format = "list"
+
+[completion.doc_format]
+show_fields = ["abstract", "year", "booktitle"]
+format = "list"
