@@ -301,14 +301,16 @@ def find_references(ls: BibliLanguageServer, params: ReferenceParams):
 
 @SERVER.feature(TEXT_DOCUMENT_DEFINITION)
 def goto_definition(ls: BibliLanguageServer, params: DefinitionParams):
-    """textDocument/definition: Jump to an object's type definition."""
+    """textDocument/definition: Jump to an object's definition."""
+
+    definitions: Definition = []
+
     document = ls.workspace.get_text_document(params.text_document.uri)
 
     cite = cite_at_position(document, params.position, ls.config)
     if not cite:
         return
 
-    definitions: Definition = []
     for library in ls.libraries:
         entry = library.library.entries_dict.get(cite)
         library_uri = f"file://{library.path}"
