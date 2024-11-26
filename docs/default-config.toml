@@ -1,0 +1,35 @@
+[backends]
+
+[hover.doc_format]
+wrap = 80
+character_limit = 400
+format = "list"
+show_fields = []
+header_format = [
+  "# `{entry_type}` {title}",
+  "_{author}_",
+  "───────────────────────────────────────────────────────────────────────────────────",
+]
+footer_format = [
+  "───────────────────────────────────────────────────────────────────────────────────",
+  "\n																				from `{bibfile}`",
+]
+
+[completion.doc_format]
+wrap = 80
+character_limit = 400
+format = "list"
+show_fields = []
+header_format = [
+  "# `{entry_type}` {title}",
+  "_{author}_",
+  "───────────────────────────────────────────────────────────────────────────────────",
+]
+footer_format = [
+  "───────────────────────────────────────────────────────────────────────────────────",
+  "\n																				from `{bibfile}`",
+]
+
+[cite]
+prefix = "@"
+regex = "@([A-Za-z_0-9]+)\\b"
