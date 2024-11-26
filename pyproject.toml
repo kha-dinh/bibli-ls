@@ -18,6 +18,7 @@ dependencies = [
   "tosholi==0.1.0",
   "mdformat==0.7.19",
   "ripgrepy==2.0.0",
+  "typing_extensions==4.12.2",
 ]
 classifiers = [
   "Programming Language :: Python :: 3",
