@@ -27,17 +27,17 @@ A [Language Server](https://microsoft.github.io/language-server-protocol/) that 
 
 ## Configuration
 
-Create a configuration file `.bibli.toml` at the root of your note directory. Here is a sample configuration:
+Create a configuration file `.bibli.toml` at the root of your note directory. Here is a sample configuration. For the complete list of configurations, refer to the [documentation](/docs/configurations.md) and the [default config](/docs/default-config.toml).
 
 ```toml
 
-[backend]
+[backends]
 # Backends can be of any names
-[backend.mylib]
+[backends.mylib]
 backend_type = "bibfile" # Available backends: "bibfile", "zotero_api"
 bibfiles = ["references.bib"]
 
-[backend.my_lab_lib]
+[backends.my_lab_lib]
 backend_type = "zotero_api"
 library_id = "5123456" # Your library ID
 library_type = "user" # "user"" or "group"
@@ -98,19 +98,18 @@ lspconfig.bibli_ls.setup({})
 
 Currently, Bibli supports `bibfile` and `zotero_api` backends.
 
-`bibfile` backend loads the library from a local bibtex file.
+- `bibfile` backend loads the library from a local bibtex file.
 
-`zotero_api` backend connects directly to your Zotero web library, removing the need for maintaining separated bibfiles.
+- `zotero_api` backend connects directly to your Zotero web library, removing the need for maintaining separated bibfiles.
 
-- [More on setting up citation keys](/docs/custom-cite-keys.md)
+  - [More on setting up citation keys for online libraries](/docs/custom-cite-keys.md)
 
 ## Building from source
 
 From the root directory:
 
 ```bash
-pyproject-build
-pip install dist/bibli_ls-{version}-py3-none-any.whl # --force-reinstall if needed
+pip install . # --force-reinstall if needed
 # Or for Arch
 pipx install . # --force-reinstall if needed
 

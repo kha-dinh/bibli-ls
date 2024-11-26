@@ -1,5 +1,5 @@
-[backend]
-[backend.bibfile]
+[backends]
+[backends.bibfile]
 backend_type = "bibfile"
 bibfiles = ["references.bib", "references_other.bib"]
 
