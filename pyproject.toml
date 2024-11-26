@@ -38,3 +38,22 @@ bibli_ls = "bibli_ls.cli:cli"
 [tool.pytest.ini_options]
 addopts = "-v"
 testpaths = ["tests"]
+
+[[tool.pydoc-markdown.loaders]]
+type = "python"
+modules = ["bibli_ls.bibli_config"]
+search_path = ["../bibli-ls/"]
+
+[[tool.pydoc-markdown.processors]]
+type = "google"
+
+[[tool.pydoc-markdown.processors]]
+type = "filter"
+documented_only = true
+
+
+[tool.pydoc-markdown.renderer]
+type = "markdown"
+data_code_block = true
+render_typehint_in_data_header = true
+render_toc = true

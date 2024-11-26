@@ -4,6 +4,8 @@ import logging
 import sys
 from pathlib import Path
 
+import tosholi
+
 file = Path(__file__).resolve()
 parent, root = file.parent, file.parents[1]
 sys.path.append(str(root))
@@ -14,6 +16,7 @@ except ValueError:
     pass
 
 __version__ = version("bibli_ls")
+from bibli_ls.bibli_config import BibliTomlConfig
 from bibli_ls.server import SERVER
 
 
@@ -45,6 +48,13 @@ Notes:
         help="display version information and exit",
         action="store_true",
     )
+
+    parser.add_argument(
+        "--default-config",
+        help="display the default TOML config",
+        action="store_true",
+    )
+
     parser.add_argument(
         "--tcp",
         help="use TCP web server instead of stdio",
@@ -82,7 +92,11 @@ Notes:
     args = parser.parse_args()
     if args.version:
         print(__version__)
-        # sys.exit(0)
+        return
+
+    if args.default_config:
+        default_config = BibliTomlConfig()
+        print(tosholi.dumps(default_config))
         return
 
     if args.tcp and args.ws:
