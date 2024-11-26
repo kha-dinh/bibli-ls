@@ -14,14 +14,12 @@ from tests import TEST_DATA, TEST_ROOT
 from tests.client import BibliClient
 from tests.utils import as_uri
 
-DEFINITION_TEST_ROOT = TEST_DATA / "definition"
-
 
 @pytest.mark.asyncio
 async def test_definition():
     """Test that definition points to the correct entry in bibfile"""
     async with BibliClient() as client:
-        uri = as_uri(DEFINITION_TEST_ROOT / "definition_test.md")
+        uri = as_uri(TEST_DATA / "definition_test.md")
         bib_uri = as_uri(TEST_ROOT / "references.bib")
         bib2_uri = as_uri(TEST_ROOT / "references_other.bib")
 
