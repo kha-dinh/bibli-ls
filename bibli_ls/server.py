@@ -62,8 +62,6 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
 
     @lsp_method(INITIALIZE)
     def lsp_initialize(self, params: InitializeParams) -> InitializeResult:
-        from watchdog.observers import Observer
-
         self._observer = None
 
         initialize_result: InitializeResult = super().lsp_initialize(params)
@@ -72,24 +70,19 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
         if params.root_path:
             self.try_load_configs_file(root_path=params.root_path)
 
-        self.schedule_file_watcher()
-        self.load_libraries()
+        self.apply_config()
+
         return initialize_result
 
     def load_libraries(self):
-        backend_config = self._server.config.backends
-
         self._server.libraries.clear()
-        for k, v in backend_config.items():
+        for k, v in self._server.config.backends.items():
             self.show_message(f"Processing backend `{k}` type `{v.backend_type}`")
             if v.backend_type == "zotero_api":
-                self._backend = ZoteroBackend(v, lsp=self)
-                self._server.libraries += self._backend.get_libraries()
+                self._server.libraries += ZoteroBackend(v, lsp=self).get_libraries()
 
             elif v.backend_type == "bibfile":
-                self._backend = BibfileBackend(v, lsp=self)
-                self._server.libraries += self._backend.get_libraries()
-
+                self._server.libraries += BibfileBackend(v, lsp=self).get_libraries()
             else:
                 self.show_message(
                     f"Unknown backend type {v.backend_type} ",
@@ -97,6 +90,7 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
                 )
 
     def apply_config(self):
+        self.load_libraries()
         self.update_trigger_characters()
 
     def try_load_configs_file(self, root_path=None, config_file=None):
@@ -127,8 +121,6 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
 
         if not self._server.config.sanitize(self):
             self.show_message("Invalid config", MessageType.Error)
-        # Update configurations based on the config
-        self.apply_config()
 
     def update_trigger_characters(self):
         """Add cite prefix to list of trigger characters."""
@@ -177,6 +169,7 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
                     self.lsp.try_load_configs_file(
                         config_file=self.lsp._server.config_file
                     )
+                    self.lsp.apply_config()
                 self.last_event = time.time_ns()
 
         if self.workspace.root_path:
