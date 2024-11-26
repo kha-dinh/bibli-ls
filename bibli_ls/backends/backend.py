@@ -2,7 +2,8 @@ from abc import abstractmethod
 from bibtexparser.middlewares.names import List
 from pygls.protocol.language_server import LanguageServerProtocol
 
-from bibli_ls.bibli_config import BackendConfig, BibliBibDatabase
+from bibli_ls.bibli_config import BackendConfig
+from bibli_ls.data_structures import BibliBibDatabase
 
 
 class BibliBackend:

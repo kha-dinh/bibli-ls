@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from bibtexparser.library import Library
 from lsprotocol.types import MessageType
 from pygls.protocol.language_server import LanguageServerProtocol
 

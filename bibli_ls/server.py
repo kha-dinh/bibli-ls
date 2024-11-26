@@ -46,7 +46,8 @@ from bibli_ls.backends.bibtex_backend import BibfileBackend
 from bibli_ls.backends.zotero_backend import ZoteroBackend
 
 from . import __version__
-from .bibli_config import BibliBibDatabase, BibliTomlConfig
+from .bibli_config import BibliTomlConfig
+from .data_structures import BibliBibDatabase
 from .utils import build_doc_string, cite_at_position
 
 
@@ -117,7 +118,7 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
             self.show_message("No config file found, using default settings\n")
 
         if not self._server.config.sanitize(self):
-            self.show_message("Invalid config found\n", MessageType.Error)
+            self.show_message("Invalid config", MessageType.Error)
         # Update configurations based on the config
         self.apply_config()
 

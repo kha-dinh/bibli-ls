@@ -11,10 +11,12 @@ from pygls.progress import Progress
 from pyzotero.zotero import Zotero
 from bibtexparser.library import Library
 from bibli_ls.backends.backend import BibliBackend
-from bibli_ls.bibli_config import BackendConfig, BibliBibDatabase
+from bibli_ls.bibli_config import BackendConfig
 from bibtexparser import bibtexparser
 
 import multiprocessing
+
+from bibli_ls.data_structures import BibliBibDatabase
 
 
 class ZoteroBackend(BibliBackend):
@@ -94,4 +96,9 @@ class ZoteroBackend(BibliBackend):
             self._lsp.show_message(f"Writing to bibfile to `{cache_file}`")
             bibtexparser.write_file(cache_file, library)
 
-        return [BibliBibDatabase(library, cache_file)]
+        return [
+            BibliBibDatabase(
+                library,
+                cache_file,
+            )
+        ]

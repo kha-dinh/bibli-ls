@@ -4,7 +4,8 @@ from lsprotocol.types import MessageType
 from pygls.protocol.language_server import LanguageServerProtocol
 from pyzotero.zotero import bibtexparser
 from bibli_ls.backends.backend import BibliBackend
-from bibli_ls.bibli_config import BackendConfig, BibliBibDatabase
+from bibli_ls.bibli_config import BackendConfig
+from bibli_ls.data_structures import BibliBibDatabase
 
 
 class BibfileBackend(BibliBackend):
