@@ -5,6 +5,7 @@ from typing import Any, Optional
 
 from bibtexparser.model import Entry
 from lsprotocol.types import (
+    EXIT,
     INITIALIZE,
     TEXT_DOCUMENT_COMPLETION,
     TEXT_DOCUMENT_DEFINITION,
@@ -36,10 +37,11 @@ from lsprotocol.types import (
     ReferenceParams,
     ShowDocumentParams,
 )
-
 from pygls.protocol.language_server import LanguageServerProtocol, lsp_method
 from pygls.server import LanguageServer
 from pygls.workspace.text_document import TextDocument
+from watchdog.events import FileModifiedEvent
+from watchdog.observers import Observer
 
 from bibli_ls.backends.backend import BibliBackend
 from bibli_ls.backends.bibtex_backend import BibfileBackend
@@ -62,7 +64,7 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
     def lsp_initialize(self, params: InitializeParams) -> InitializeResult:
         from watchdog.observers import Observer
 
-        self.observer = Observer()
+        self._observer = None
 
         initialize_result: InitializeResult = super().lsp_initialize(params)
         self._initialize_result = initialize_result
@@ -70,13 +72,12 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
         if params.root_path:
             self.try_load_configs_file(root_path=params.root_path)
 
+        self.schedule_file_watcher()
+        self.load_libraries()
         return initialize_result
 
-    def apply_config(self):
-        self.update_trigger_characters()
-        self.schedule_file_watcher()
-
-        backend_config = self._server.config.backend
+    def load_libraries(self):
+        backend_config = self._server.config.backends
 
         self._server.libraries.clear()
         for k, v in backend_config.items():
@@ -94,6 +95,9 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
                     f"Unknown backend type {v.backend_type} ",
                     MessageType.Error,
                 )
+
+    def apply_config(self):
+        self.update_trigger_characters()
 
     def try_load_configs_file(self, root_path=None, config_file=None):
         """Load config file located at the root of the project.
@@ -113,7 +117,11 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
             self._server.config = tosholi.load(BibliTomlConfig, f)
             self._server.config_file = config_file
             self.show_message(f"Loaded configs from `{config_file}`")
-
+        except NameError as e:
+            self.show_message(
+                f"Failed to parse config file `{config_file}` error {e}\n",
+                MessageType.Error,
+            )
         except FileNotFoundError:
             self.show_message("No config file found, using default settings\n")
 
@@ -147,37 +155,48 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
             def on_modified(self, event: FileSystemEvent) -> None:
                 import time
 
+                if event.is_directory:
+                    return
                 # Avoid too many events
                 if time.time_ns() - self.last_event < 10**9:
                     return
 
-                if not event.is_directory:
-                    for file in self.lsp._server.config.bibfiles:
-                        if event.src_path == os.path.abspath(file):
-                            self.lsp.show_message(
-                                f"Bibfile `{event.src_path}` modified"
-                            )
-                            self.lsp._server.libraries = (
-                                self.lsp._backend.get_libraries()
-                            )
+                for lib in self.lsp._server.libraries:
+                    if not lib.path:
+                        continue
 
-                            self.last_event = time.time_ns()
+                    if os.path.abspath(lib.path) != event.src_path:
+                        continue
 
-                    if event.src_path == os.path.abspath(self.lsp._server.config_file):
-                        self.lsp.show_message(
-                            f"Config file `{event.src_path}` modified"
-                        )
-                        self.lsp.try_load_configs_file(
-                            config_file=self.lsp._server.config_file
-                        )
-                        self.last_event = time.time_ns()
+                    self.lsp.show_message(f"Bibfile `{event.src_path}` modified")
+                    # Just reloading config for now since it would be too complicated to reload specific library
+                    self.lsp.load_libraries()
 
-        self.observer.schedule(
-            event_handler=FileChangedHandler(self),
-            path=self.workspace.root_path,
-            recursive=True,
-        )
-        self.observer.start()
+                if event.src_path == os.path.abspath(self.lsp._server.config_file):
+                    self.lsp.show_message(f"Config file `{event.src_path}` modified")
+                    self.lsp.try_load_configs_file(
+                        config_file=self.lsp._server.config_file
+                    )
+                self.last_event = time.time_ns()
+
+        if self.workspace.root_path:
+            del self._observer
+
+            self._observer = Observer()
+
+            self._observer.schedule(
+                event_handler=FileChangedHandler(self),
+                path=self.workspace.root_path,
+                recursive=True,
+                event_filter=[FileModifiedEvent],
+            )
+            self._observer.start()
+
+    @lsp_method(EXIT)
+    def lsp_exit(self, *args) -> None:
+        if self._observer:
+            self._observer.stop()
+            del self._observer
 
 
 class BibliLanguageServer(LanguageServer):
