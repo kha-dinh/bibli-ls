@@ -1,11 +1,24 @@
-from typing import List
-from typing_extensions import assert_type
-from bibtexparser.model import Entry, Field
-from lsprotocol.types import Position
 import re
+from typing import List
+
+from bibtexparser.model import Entry, Field
+from lsprotocol.types import MessageType, Position, ShowMessageParams
+from pygls.lsp.server import LanguageServer
 from pygls.workspace import TextDocument
+from typing_extensions import assert_type
 
 from .bibli_config import BibliTomlConfig, DocFormatingConfig
+
+
+def show_message(
+    ls: LanguageServer, msg: str, msg_type: MessageType = MessageType.Info
+):
+    ls.window_show_message(
+        ShowMessageParams(
+            msg_type,
+            msg,
+        )
+    )
 
 
 def cite_at_position(

@@ -1,16 +1,16 @@
+import logging
 import os
 import re
 from pathlib import Path
 from typing import Any, Optional
 
-from bibtexparser.model import Entry
 from lsprotocol.types import (
-    EXIT,
     INITIALIZE,
     TEXT_DOCUMENT_COMPLETION,
     TEXT_DOCUMENT_DEFINITION,
     TEXT_DOCUMENT_DID_CHANGE,
     TEXT_DOCUMENT_DID_OPEN,
+    TEXT_DOCUMENT_DID_SAVE,
     TEXT_DOCUMENT_HOVER,
     TEXT_DOCUMENT_IMPLEMENTATION,
     TEXT_DOCUMENT_REFERENCES,
@@ -24,6 +24,7 @@ from lsprotocol.types import (
     Diagnostic,
     DiagnosticSeverity,
     DidOpenTextDocumentParams,
+    DidSaveTextDocumentParams,
     Hover,
     HoverParams,
     InitializeParams,
@@ -33,163 +34,108 @@ from lsprotocol.types import (
     MarkupKind,
     MessageType,
     Position,
+    PublishDiagnosticsParams,
     Range,
     ReferenceParams,
     ShowDocumentParams,
 )
+from pygls.lsp.server import LanguageServer
 from pygls.protocol.language_server import LanguageServerProtocol, lsp_method
-from pygls.server import LanguageServer
 from pygls.workspace.text_document import TextDocument
-from watchdog.events import FileModifiedEvent
-from watchdog.observers import Observer
 
-from bibli_ls.backends.backend import BibliBackend
 from bibli_ls.backends.bibtex_backend import BibfileBackend
 from bibli_ls.backends.zotero_backend import ZoteroBackend
 
 from . import __version__
 from .bibli_config import BibliTomlConfig
-from .data_structures import BibliBibDatabase
-from .utils import build_doc_string, cite_at_position
+from .database import BibliBibDatabase
+from .utils import build_doc_string, cite_at_position, show_message
+
+CONFIG = BibliTomlConfig()
+CONFIG_FILE: Path
+DATABASE = BibliBibDatabase()
+
+
+def try_load_configs_file(ls: LanguageServer, root_path=None, config_file=None):
+    """Load config file located at the root of the project.
+    Use default config if not found.
+    """
+    import tosholi
+
+    if not config_file:
+        if root_path:
+            config_file = Path(os.path.join(root_path, ".bibli.toml"))
+
+    if not config_file:
+        return
+
+    try:
+        global CONFIG, CONFIG_FILE
+        f = open(config_file, "rb")
+        CONFIG = tosholi.load(BibliTomlConfig, f)
+        CONFIG_FILE = config_file
+        show_message(ls, f"Loaded configs from `{config_file}`")
+    except NameError as e:
+        show_message(
+            ls,
+            f"Failed to parse config file `{config_file}` error {e}\n",
+            MessageType.Error,
+        )
+    except FileNotFoundError:
+        show_message(ls, "No config file found, using default settings\n")
+
+    if not CONFIG.sanitize():
+        logging.error("Invalid config")
+
+
+def load_libraries(ls: LanguageServer):
+    global DATABASE
+    DATABASE.libraries.clear()
+    for k, v in CONFIG.backends.items():
+        show_message(
+            ls,
+            f"Processing backend `{k}` type `{v.backend_type}`",
+        )
+        if v.backend_type == "zotero_api":
+            DATABASE.libraries += ZoteroBackend(v, ls).get_libraries()
+
+        elif v.backend_type == "bibfile":
+            DATABASE.libraries += BibfileBackend(v, ls).get_libraries()
+        else:
+            show_message(
+                ls,
+                f"Unknown backend type {v.backend_type} ",
+                MessageType.Error,
+            )
 
 
 class BibliLanguageServerProtocol(LanguageServerProtocol):
     """Override some built-in functions."""
 
-    _server: "BibliLanguageServer"
-    _initialize_result: InitializeResult
-    _backend: BibliBackend
-
     @lsp_method(INITIALIZE)
     def lsp_initialize(self, params: InitializeParams) -> InitializeResult:
-        self._observer = None
+        """Initialize LSP"""
 
         initialize_result: InitializeResult = super().lsp_initialize(params)
-        self._initialize_result = initialize_result
 
         if params.root_path:
-            self.try_load_configs_file(root_path=params.root_path)
+            try_load_configs_file(self._server, root_path=params.root_path)
 
-        self.apply_config()
+        # Load libraries
+        load_libraries(self._server)
 
-        return initialize_result
-
-    def load_libraries(self):
-        self._server.libraries.clear()
-        for k, v in self._server.config.backends.items():
-            self.show_message(f"Processing backend `{k}` type `{v.backend_type}`")
-            if v.backend_type == "zotero_api":
-                self._server.libraries += ZoteroBackend(v, lsp=self).get_libraries()
-
-            elif v.backend_type == "bibfile":
-                self._server.libraries += BibfileBackend(v, lsp=self).get_libraries()
-            else:
-                self.show_message(
-                    f"Unknown backend type {v.backend_type} ",
-                    MessageType.Error,
-                )
-
-    def apply_config(self):
-        self.load_libraries()
-        self.update_trigger_characters()
-
-    def try_load_configs_file(self, root_path=None, config_file=None):
-        """Load config file located at the root of the project.
-        Use default config if not found.
-        """
-        import tosholi
-
-        if not config_file:
-            if root_path:
-                config_file = Path(os.path.join(root_path, ".bibli.toml"))
-
-        if not config_file:
-            return
-
-        try:
-            f = open(config_file, "rb")
-            self._server.config = tosholi.load(BibliTomlConfig, f)
-            self._server.config_file = config_file
-            self.show_message(f"Loaded configs from `{config_file}`")
-        except NameError as e:
-            self.show_message(
-                f"Failed to parse config file `{config_file}` error {e}\n",
-                MessageType.Error,
-            )
-        except FileNotFoundError:
-            self.show_message("No config file found, using default settings\n")
-
-        if not self._server.config.sanitize(self):
-            self.show_message("Invalid config", MessageType.Error)
-
-    def update_trigger_characters(self):
-        """Add cite prefix to list of trigger characters."""
         # Register additional trigger characters
-        completion_provider = self._initialize_result.capabilities.completion_provider
-        prefix = self._server.config.cite.prefix
+        completion_provider = initialize_result.capabilities.completion_provider
+        prefix = CONFIG.cite.prefix
         if completion_provider:
             if completion_provider.trigger_characters:
-                completion_provider.trigger_characters.append(prefix)
+                completion_provider.trigger_characters = list(
+                    completion_provider.trigger_characters
+                ).append(prefix)
             else:
                 completion_provider.trigger_characters = [prefix]
 
-    def schedule_file_watcher(self):
-        """Schedule watchers to watch for changes in bibtex files"""
-        from watchdog.events import FileSystemEvent, FileSystemEventHandler
-
-        class FileChangedHandler(FileSystemEventHandler):
-            last_event = 0
-
-            def __init__(self, lsp: BibliLanguageServerProtocol) -> None:
-                self.lsp = lsp
-                super().__init__()
-
-            def on_modified(self, event: FileSystemEvent) -> None:
-                import time
-
-                if event.is_directory:
-                    return
-                # Avoid too many events
-                if time.time_ns() - self.last_event < 10**9:
-                    return
-
-                for lib in self.lsp._server.libraries:
-                    if not lib.path:
-                        continue
-
-                    if os.path.abspath(lib.path) != event.src_path:
-                        continue
-
-                    self.lsp.show_message(f"Bibfile `{event.src_path}` modified")
-                    # Just reloading config for now since it would be too complicated to reload specific library
-                    self.lsp.load_libraries()
-
-                if event.src_path == os.path.abspath(self.lsp._server.config_file):
-                    self.lsp.show_message(f"Config file `{event.src_path}` modified")
-                    self.lsp.try_load_configs_file(
-                        config_file=self.lsp._server.config_file
-                    )
-                    self.lsp.apply_config()
-                self.last_event = time.time_ns()
-
-        if self.workspace.root_path:
-            del self._observer
-
-            self._observer = Observer()
-
-            self._observer.schedule(
-                event_handler=FileChangedHandler(self),
-                path=self.workspace.root_path,
-                recursive=True,
-                event_filter=[FileModifiedEvent],
-            )
-            self._observer.start()
-
-    @lsp_method(EXIT)
-    def lsp_exit(self, *args) -> None:
-        if self._observer:
-            self._observer.stop()
-            del self._observer
+        return initialize_result
 
 
 class BibliLanguageServer(LanguageServer):
@@ -200,32 +146,21 @@ class BibliLanguageServer(LanguageServer):
     """
 
     # initialization_options: InitializationOptions
-    config_file: Path
-    config: BibliTomlConfig
-    libraries: list[BibliBibDatabase]
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         self.index = {}
         self.diagnostics = {}
-        self.libraries = []
-        self.config = BibliTomlConfig()
 
         super().__init__(*args, **kwargs)
 
-    def find_in_libraries(self, key: str) -> Entry | None:
-        for lib in self.libraries:
-            if lib.library.entries_dict.__contains__(key):
-                return lib.library.entries_dict[key]
-
-        return None
-
     def diagnose(self, document: TextDocument):
+        global CONFIG
         diagnostics = []
 
         for idx, line in enumerate(document.lines):
-            for match in re.finditer(self.config.cite.regex, line):
+            for match in re.finditer(CONFIG.cite.regex, line):
                 key = match.group(1)
-                if self.find_in_libraries(key):
+                if DATABASE.find_in_libraries(key):
                     continue
 
                 (start, end) = match.span(1)
@@ -252,6 +187,12 @@ SERVER = BibliLanguageServer(
 )
 
 
+@SERVER.feature(TEXT_DOCUMENT_DID_SAVE)
+def did_save(ls: BibliLanguageServer, params: DidSaveTextDocumentParams):
+    if params.text_document.uri == CONFIG_FILE.as_uri():
+        logging.info(f"Config file `{CONFIG_FILE}` modified")
+
+
 @SERVER.feature(TEXT_DOCUMENT_DID_OPEN)
 def did_open(ls: BibliLanguageServer, params: DidOpenTextDocumentParams):
     """Parse each document when it is opened"""
@@ -259,7 +200,9 @@ def did_open(ls: BibliLanguageServer, params: DidOpenTextDocumentParams):
     ls.diagnose(doc)
 
     for uri, (version, diagnostics) in ls.diagnostics.items():
-        ls.publish_diagnostics(uri=uri, version=version, diagnostics=diagnostics)
+        ls.text_document_publish_diagnostics(
+            PublishDiagnosticsParams(uri=uri, version=version, diagnostics=diagnostics)
+        )
 
 
 @SERVER.feature(TEXT_DOCUMENT_DID_CHANGE)
@@ -269,7 +212,9 @@ def did_change(ls: BibliLanguageServer, params: DidOpenTextDocumentParams):
     ls.diagnose(doc)
 
     for uri, (version, diagnostics) in ls.diagnostics.items():
-        ls.publish_diagnostics(uri=uri, version=version, diagnostics=diagnostics)
+        ls.text_document_publish_diagnostics(
+            PublishDiagnosticsParams(uri=uri, version=version, diagnostics=diagnostics)
+        )
 
 
 @SERVER.feature(TEXT_DOCUMENT_REFERENCES)
@@ -283,13 +228,13 @@ def find_references(ls: BibliLanguageServer, params: ReferenceParams):
         return
 
     document = ls.workspace.get_text_document(params.text_document.uri)
-    cite = cite_at_position(document, params.position, ls.config)
+    cite = cite_at_position(document, params.position, CONFIG)
 
     if not cite:
         return
 
     # Include prefix for more accuracy
-    rg = Ripgrepy(ls.config.cite.prefix + cite, root_path)
+    rg = Ripgrepy(CONFIG.cite.prefix + cite, root_path)
     result = rg.with_filename().json().run().as_dict
     references = []
 
@@ -320,18 +265,18 @@ def goto_definition(ls: BibliLanguageServer, params: DefinitionParams):
 
     document = ls.workspace.get_text_document(params.text_document.uri)
 
-    cite = cite_at_position(document, params.position, ls.config)
+    cite = cite_at_position(document, params.position, CONFIG)
     if not cite:
         return
 
-    for library in ls.libraries:
-        entry = library.library.entries_dict.get(cite)
+    for library in DATABASE.libraries:
+        entry = library.entries_dict.get(cite)
         library_uri = f"file://{library.path}"
 
         if entry and library.path:
             from ripgrepy import Ripgrepy
 
-            rg = Ripgrepy(cite, library.path)
+            rg = Ripgrepy(cite, str(library.path))
             result = rg.with_filename().json().run().as_dict
             for res in result:
                 if res["type"] == "match":
@@ -359,14 +304,14 @@ def goto_implementation(ls: BibliLanguageServer, params: DefinitionParams):
     """textDocument/definition: Jump to an object's type definition."""
     document = ls.workspace.get_text_document(params.text_document.uri)
 
-    cite = cite_at_position(document, params.position, ls.config)
+    cite = cite_at_position(document, params.position, CONFIG)
     if not cite:
         return
 
-    for library in ls.libraries:
-        entry = library.library.entries_dict.get(cite)
+    for library in DATABASE.libraries:
+        entry = library.entries_dict.get(cite)
         if entry and entry.fields_dict.get("url"):
-            ls.show_document(
+            ls.window_show_document(
                 ShowDocumentParams(entry.fields_dict["url"].value, external=True)
             )
 
@@ -381,15 +326,15 @@ def hover(ls: BibliLanguageServer, params: HoverParams):
     document_uri = params.text_document.uri
     document = ls.workspace.get_text_document(document_uri)
 
-    cite = cite_at_position(document, params.position, ls.config)
+    cite = cite_at_position(document, params.position, CONFIG)
     if not cite:
         return None
 
-    for library in ls.libraries:
-        entry = library.library.entries_dict.get(cite)
+    for library in DATABASE.libraries:
+        entry = library.entries_dict.get(cite)
         if entry:
             hover_text = build_doc_string(
-                entry, ls.config.hover.doc_format, library.path
+                entry, CONFIG.hover.doc_format, str(library.path)
             )
 
             return Hover(
@@ -416,16 +361,16 @@ def completion(
 ) -> Optional[CompletionList]:
     """textDocument/completion: Returns completion items."""
 
-    prefix = ls.config.cite.prefix
+    prefix = CONFIG.cite.prefix
     completion_items = []
 
     processed_keys = {}
-    for library in ls.libraries:
-        for k, entry in library.library.entries_dict.items():
+    for library in DATABASE.libraries:
+        for k, entry in library.entries_dict.items():
             key = prefix + k
             text_edits = []
             doc_string = build_doc_string(
-                entry, ls.config.completion.doc_format, library.path
+                entry, CONFIG.completion.doc_format, str(library.path)
             )
 
             # Avoid showing duplicated entries

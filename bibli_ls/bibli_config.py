@@ -1,6 +1,5 @@
+import logging
 from dataclasses import dataclass, field
-from lsprotocol.types import MessageType
-from pygls.protocol.language_server import LanguageServerProtocol
 
 """Default header"""
 DEFAULT_HEADER_FORMAT = [
@@ -143,31 +142,28 @@ class BibliTomlConfig:
     cite: CiteConfig = field(default_factory=lambda: CiteConfig())
     """See `CiteConfig`"""
 
-    def check_expected(self, field, value, lsp) -> bool:
+    def check_expected(self, field, value) -> bool:
         if value not in EXPECTED_VALUES[field]:
-            lsp.show_message(
+            logging.error(
                 f"Unexpected value in {field}: {value}",
-                MessageType.Error,
             )
             return False
         return True
 
-    def sanitize(self, lsp: LanguageServerProtocol) -> bool:
+    def sanitize(self) -> bool:
         valid = True
         for _, v in self.backends.items():
-            valid |= self.check_expected("backend_type", v.backend_type, lsp)
+            valid |= self.check_expected("backend_type", v.backend_type)
             match v.backend_type:
                 case "zotero_api":
-                    valid |= self.check_expected("library_type", v.library_type, lsp)
+                    valid |= self.check_expected("library_type", v.library_type)
                 case "bibfile":
                     pass
 
-        valid |= self.check_expected(
-            "doc_format.format", self.hover.doc_format.format, lsp
-        )
+        valid |= self.check_expected("doc_format.format", self.hover.doc_format.format)
 
         valid |= self.check_expected(
-            "doc_format.format", self.completion.doc_format.format, lsp
+            "doc_format.format", self.completion.doc_format.format
         )
 
         return valid

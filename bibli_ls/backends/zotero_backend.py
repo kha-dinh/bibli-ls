@@ -1,52 +1,57 @@
-from multiprocessing.pool import AsyncResult
+import logging
+import multiprocessing
 import os
+from multiprocessing.pool import AsyncResult
+from pathlib import Path
+
+from bibtexparser import bibtexparser
+from bibtexparser.library import Library
 from bibtexparser.middlewares.names import List
 from lsprotocol.types import (
-    MessageType,
     WorkDoneProgressBegin,
     WorkDoneProgressEnd,
     WorkDoneProgressReport,
 )
+from pygls.lsp.server import LanguageServer
 from pygls.progress import Progress
 from pyzotero.zotero import Zotero
-from bibtexparser.library import Library
+
 from bibli_ls.backends.backend import BibliBackend
 from bibli_ls.bibli_config import BackendConfig
-from bibtexparser import bibtexparser
+from bibli_ls.database import BibliLibrary
 
-import multiprocessing
-
-from bibli_ls.data_structures import BibliBibDatabase
+logger = logging.getLogger(__name__)
 
 
 class ZoteroBackend(BibliBackend):
     _zot: Zotero
 
-    def __init__(self, config: BackendConfig, lsp):
-        super().__init__(config, lsp)
+    def __init__(self, config: BackendConfig, ls: LanguageServer):
+        super().__init__(config, ls)
         if config.library_id == "":
-            lsp.show_message("Library ID not specified", MessageType.Error)
+            logger.error("Library ID not specified")
             return
 
         if config.api_key is None:
-            lsp.show_message("API key not specified", MessageType.Error)
+            logger.error("API key not specified")
             return
-        lsp.show_message(
-            f"Initializing zotero API connection library_id `{config.library_id}`, library_type `{config.library_type}`"
+
+        logger.info(
+            f"Initializing zotero API connection library_id `{config.library_id}`, library_type `{config.library_type}`",
         )
         self._zot = Zotero(config.library_id, config.library_type, config.api_key)
 
     def get_libraries(
         self,
-    ) -> List[BibliBibDatabase]:
+    ):
         count = self._zot.count_items()
         loaded = 0
-        limit = 10
+        limit = 100
 
         library = Library()
         pool = multiprocessing.Pool(16)
 
-        progress = Progress(self._lsp)
+        progress = Progress(self._ls.protocol)
         progress.create("bibli")
         progress.begin(
             "bibli",
@@ -69,7 +74,11 @@ class ZoteroBackend(BibliBackend):
             items = r.get()
             loaded += len(items)
             items_str = "\n".join(items)
-            bibtexparser.parse_string(items_str, library=library)
+            lib = bibtexparser.parse_string(items_str)
+
+            for entry in lib.entries_dict.values():
+                if entry.fields_dict.get("author") and entry.fields_dict.get("title"):
+                    library.add(entry)
 
             progress.report(
                 "bibli",
@@ -89,16 +98,16 @@ class ZoteroBackend(BibliBackend):
 
         # Writing to file
         filename = f".zotero_api_{self._zot.library_id}.bib"
-        root_path = self._lsp.workspace.root_path
+        root_path = self._ls.workspace.root_path
         cache_file = None
         if root_path:
             cache_file = os.path.join(root_path, filename)
-            self._lsp.show_message(f"Writing to bibfile to `{cache_file}`")
+            logger.info(f"Writing to bibfile to `{cache_file}`")
             bibtexparser.write_file(cache_file, library)
 
         return [
-            BibliBibDatabase(
-                library,
-                cache_file,
+            BibliLibrary(
+                library.blocks,
+                Path(cache_file) if cache_file else None,
             )
         ]

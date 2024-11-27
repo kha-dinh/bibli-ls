@@ -1,35 +1,37 @@
 import os
+from pathlib import Path
+from bibtexparser.middlewares.latex_encoding import logging
 from bibtexparser.writer import Library
 from lsprotocol.types import MessageType
-from pygls.protocol.language_server import LanguageServerProtocol
+from pygls.lsp.server import LanguageServer
 from pyzotero.zotero import bibtexparser
 from bibli_ls.backends.backend import BibliBackend
 from bibli_ls.bibli_config import BackendConfig
-from bibli_ls.data_structures import BibliBibDatabase
+from bibli_ls.database import BibliLibrary
 
 
 class BibfileBackend(BibliBackend):
-    def __init__(self, config: BackendConfig, lsp: LanguageServerProtocol) -> None:
-        super().__init__(config, lsp)
+    def __init__(self, config: BackendConfig, ls: LanguageServer) -> None:
+        super().__init__(config, ls)
 
         """TODO: Get all bibtex files found if config is not given."""
         if config.bibfiles == []:
-            lsp.show_message("No bibfile found.", MessageType.Warning)
+            logging.warning("No bibfile found.", MessageType.Warning)
 
     def get_libraries(self):
         libraries = []
         for bibfile_path in self._config.bibfiles:
-            if not os.path.isabs(bibfile_path) and self._lsp.workspace.root_path:
-                bibfile_path = os.path.join(self._lsp.workspace.root_path, bibfile_path)
+            if not os.path.isabs(bibfile_path) and self._ls.workspace.root_path:
+                bibfile_path = os.path.join(self._ls.workspace.root_path, bibfile_path)
 
             with open(bibfile_path, "r") as bibtex_file:
                 library: Library = bibtexparser.parse_string(bibtex_file.read())
                 len = library.entries.__len__()
-                self._lsp.show_message(f"Loaded {len} entries from `{bibfile_path}`")
+                logging.info(f"Loaded {len} entries from `{bibfile_path}`")
                 libraries.append(
-                    BibliBibDatabase(
-                        library,
-                        bibfile_path,
+                    BibliLibrary(
+                        library.blocks,
+                        Path(bibfile_path),
                     )
                 )
         return libraries
