@@ -1,0 +1,5 @@
+PWD /home/khadd/1.projects/3.personal/bibli_ls/tests/test_data
+INPUT /usr/share/texmf-dist/web2c/texmf.cnf
+INPUT /var/lib/texmf/web2c/pdftex/pdflatex.fmt
+INPUT /home/khadd/1.projects/3.personal/bibli_ls/tests/test_data/references_other.bib
+OUTPUT references_other.log

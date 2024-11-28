@@ -3,13 +3,9 @@
 import pytest
 from hamcrest import assert_that, is_
 from lsprotocol.types import (
-    CompletionItem,
     CompletionList,
     CompletionParams,
-    DefinitionParams,
-    Location,
     Position,
-    Range,
     TextDocumentIdentifier,
 )
 
@@ -21,7 +17,8 @@ from tests.utils import as_uri
 @pytest.mark.asyncio
 async def test_completion():
     """Test that definition points to the correct entry in bibfile"""
-    async with BibliClient() as client:
+
+    async with BibliClient(TEST_DATA) as client:
         uri = as_uri(TEST_DATA / "definition_test.md")
 
         actual = await client.text_document_completion_async(
@@ -35,4 +32,4 @@ async def test_completion():
         assert_that(actual.items[0].label, is_("@test1"))
         assert_that(actual.items[1].label, is_("@test2"))
         assert_that(actual.items[2].label, is_("@test3"))
-        assert_that(actual.items[3].label, is_("@test4"))
+        assert_that(actual.items[3].label, is_("@reference_test"))

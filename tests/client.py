@@ -1,5 +1,5 @@
 from lsprotocol.types import ClientCapabilities, InitializeParams, InitializedParams
-from pygls.lsp.client import BaseLanguageClient
+from pygls.lsp._base_client import BaseLanguageClient
 import sys
 import os
 
@@ -18,7 +18,7 @@ class BibliClient(BaseLanguageClient):
             os.path.join(PROJECT_ROOT, "bibli_ls/cli.py"),
             "--log-file",
             os.path.join(self._test_root, "test_lsp.log"),
-            "-vvv",
+            "-v",
         )
 
         response = await self.initialize_async(

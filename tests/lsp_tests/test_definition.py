@@ -18,10 +18,11 @@ from tests.utils import as_uri
 @pytest.mark.asyncio
 async def test_definition():
     """Test that definition points to the correct entry in bibfile"""
-    async with BibliClient() as client:
+
+    async with BibliClient(TEST_DATA) as client:
         uri = as_uri(TEST_DATA / "definition_test.md")
-        bib_uri = as_uri(TEST_ROOT / "references.bib")
-        bib2_uri = as_uri(TEST_ROOT / "references_other.bib")
+        bib_uri = as_uri(TEST_DATA / "references.bib")
+        bib2_uri = as_uri(TEST_DATA / "references_other.bib")
 
         actual = await client.text_document_definition_async(
             DefinitionParams(TextDocumentIdentifier(uri), Position(line=1, character=2))

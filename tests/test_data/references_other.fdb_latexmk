@@ -1,0 +1,12 @@
+# Fdb version 4
+["pdflatex"] 1732768516.0219 "/home/khadd/1.projects/3.personal/bibli_ls/tests/test_data/references_other.bib" "references_other.pdf" "references_other" 1732768516.1652 2
+  "/home/khadd/1.projects/3.personal/bibli_ls/tests/test_data/references_other.bib" 1732768515.87499 420 f22c58d25bebf6f125a1b73fe7fe1fd7 ""
+  "/usr/share/texmf-dist/web2c/texmf.cnf" 1716849630 41588 b43d3e860a4f94167ee1e725ff526a72 ""
+  "/var/lib/texmf/web2c/pdftex/pdflatex.fmt" 1727067970 7112997 6afdc258abdcdf9e82dd37178d3db7fa ""
+  "references_other.aux" 1732768516.01833 32 3985256e7290058c681f74d7a3565a19 "pdflatex"
+  "references_other.bib" 1732768515.87499 420 f22c58d25bebf6f125a1b73fe7fe1fd7 ""
+  (generated)
+  "references_other.aux"
+  "references_other.log"
+  "references_other.pdf"
+  (rewritten before read)

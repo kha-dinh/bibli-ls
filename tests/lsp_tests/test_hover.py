@@ -15,9 +15,9 @@ from tests.utils import as_uri
 
 @pytest.mark.asyncio
 async def test_hover():
-    """Test that completion show the correct contents"""
+    """Test that hovering show the correct contents"""
 
-    async with BibliClient() as client:
+    async with BibliClient(TEST_DATA) as client:
         uri = as_uri(TEST_DATA / "definition_test.md")
 
         actual = await client.text_document_hover_async(
