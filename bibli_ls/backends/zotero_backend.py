@@ -19,6 +19,7 @@ from pyzotero.zotero import Zotero
 from bibli_ls.backends.backend import BibliBackend
 from bibli_ls.bibli_config import BackendConfig
 from bibli_ls.database import BibliLibrary
+from bibli_ls.utils import show_message
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +27,8 @@ logger = logging.getLogger(__name__)
 class ZoteroBackend(BibliBackend):
     _zot: Zotero
 
-    def __init__(self, config: BackendConfig, ls: LanguageServer):
-        super().__init__(config, ls)
+    def __init__(self, name: str, config: BackendConfig, ls: LanguageServer):
+        super().__init__(name, config, ls)
         if config.library_id == "":
             logger.error("Library ID not specified")
             return
@@ -47,19 +48,17 @@ class ZoteroBackend(BibliBackend):
         count = self._zot.count_items()
         loaded = 0
         limit = 100
+        total_entries = 0
+
+        show_message(
+            self._ls,
+            f"Fetching online `{self._zot.library_type}` library from `{self._zot.library_id}`",
+        )
 
         library = Library()
-        pool = multiprocessing.Pool(16)
+        pool = multiprocessing.Pool(4)
 
-        progress = Progress(self._ls.protocol)
-        progress.create("bibli")
-        progress.begin(
-            "bibli",
-            WorkDoneProgressBegin(
-                title=f"Retriving online library from `{self._zot.library_id}`",
-                message="libraries loaded",
-            ),
-        )
+        self.load_progress_begin(self._zot.library_id)
 
         results: List[AsyncResult] = []
         for i in range(0, count, limit):
@@ -79,25 +78,17 @@ class ZoteroBackend(BibliBackend):
             for entry in lib.entries_dict.values():
                 if entry.fields_dict.get("author") and entry.fields_dict.get("title"):
                     library.add(entry)
+                    total_entries += 1
 
-            progress.report(
-                "bibli",
-                WorkDoneProgressReport(
-                    message="libraries loaded",
-                    percentage=int(loaded * 100 / count),
-                ),
-            )
+            self.load_progress_update(self._zot.library_id, loaded, count)
 
-        progress.end(
-            "bibli",
-            WorkDoneProgressEnd(message="Done"),
-        )
+        self.load_progress_done(total_entries, self._zot.library_id)
 
         pool.close()
         pool.join()
 
         # Writing to file
-        filename = f".zotero_api_{self._zot.library_id}.bib"
+        filename = f".{self._name}_{self._zot.library_type}_{self._zot.library_id}.bib"
         root_path = self._ls.workspace.root_path
         cache_file = None
         if root_path:
