@@ -4,41 +4,7 @@ import re
 from pathlib import Path
 from typing import Any, Optional
 
-from lsprotocol.types import (
-    INITIALIZE,
-    TEXT_DOCUMENT_COMPLETION,
-    TEXT_DOCUMENT_DEFINITION,
-    TEXT_DOCUMENT_DID_CHANGE,
-    TEXT_DOCUMENT_DID_OPEN,
-    TEXT_DOCUMENT_DID_SAVE,
-    TEXT_DOCUMENT_HOVER,
-    TEXT_DOCUMENT_IMPLEMENTATION,
-    TEXT_DOCUMENT_REFERENCES,
-    CompletionItem,
-    CompletionItemKind,
-    CompletionList,
-    CompletionOptions,
-    CompletionParams,
-    Definition,
-    DefinitionParams,
-    Diagnostic,
-    DiagnosticSeverity,
-    DidOpenTextDocumentParams,
-    DidSaveTextDocumentParams,
-    Hover,
-    HoverParams,
-    InitializeParams,
-    InitializeResult,
-    Location,
-    MarkupContent,
-    MarkupKind,
-    MessageType,
-    Position,
-    PublishDiagnosticsParams,
-    Range,
-    ReferenceParams,
-    ShowDocumentParams,
-)
+from lsprotocol import types
 from pygls.lsp.server import LanguageServer
 from pygls.protocol.language_server import LanguageServerProtocol, lsp_method
 from pygls.workspace.text_document import TextDocument
@@ -82,7 +48,7 @@ def try_load_configs_file(ls: LanguageServer, root_path=None, config_file=None):
         show_message(
             ls,
             f"Failed to parse config file `{config_file}` error {e}\n",
-            MessageType.Error,
+            types.MessageType.Error,
         )
     except FileNotFoundError:
         show_message(ls, "No config file found, using default settings\n")
@@ -100,26 +66,26 @@ def load_libraries(ls: LanguageServer):
             f"Processing backend `{k}` type `{v.backend_type}`",
         )
         if v.backend_type == "zotero_api":
-            DATABASE.libraries += ZoteroBackend(v, ls).get_libraries()
+            DATABASE.libraries += ZoteroBackend(k, v, ls).get_libraries()
 
         elif v.backend_type == "bibfile":
-            DATABASE.libraries += BibfileBackend(v, ls).get_libraries()
+            DATABASE.libraries += BibfileBackend(k, v, ls).get_libraries()
         else:
             show_message(
                 ls,
                 f"Unknown backend type {v.backend_type} ",
-                MessageType.Error,
+                types.MessageType.Error,
             )
 
 
 class BibliLanguageServerProtocol(LanguageServerProtocol):
     """Override some built-in functions."""
 
-    @lsp_method(INITIALIZE)
-    def lsp_initialize(self, params: InitializeParams) -> InitializeResult:
+    @lsp_method(types.INITIALIZE)
+    def lsp_initialize(self, params: types.InitializeParams) -> types.InitializeResult:
         """Initialize LSP"""
 
-        initialize_result: InitializeResult = super().lsp_initialize(params)
+        initialize_result: types.InitializeResult = super().lsp_initialize(params)
 
         if params.root_path:
             try_load_configs_file(self._server, root_path=params.root_path)
@@ -168,14 +134,14 @@ class BibliLanguageServer(LanguageServer):
 
                 (start, end) = match.span(1)
                 message = f'Item "{key}" does not exist in library'
-                severity = DiagnosticSeverity.Warning
+                severity = types.DiagnosticSeverity.Warning
                 diagnostics.append(
-                    Diagnostic(
+                    types.Diagnostic(
                         message=message,
                         severity=severity,
-                        range=Range(
-                            start=Position(line=idx, character=start),
-                            end=Position(line=idx, character=end),
+                        range=types.Range(
+                            start=types.Position(line=idx, character=start),
+                            end=types.Position(line=idx, character=end),
                         ),
                     )
                 )
@@ -190,38 +156,65 @@ SERVER = BibliLanguageServer(
 )
 
 
-@SERVER.feature(TEXT_DOCUMENT_DID_SAVE)
-def did_save(_: BibliLanguageServer, params: DidSaveTextDocumentParams):
+@SERVER.command("library.reload_all")
+async def reload_all(ls: BibliLanguageServer, *args):
+    load_libraries(ls)
+
+
+@SERVER.feature(
+    types.TEXT_DOCUMENT_CODE_ACTION,
+    types.CodeActionOptions(code_action_kinds=[types.CodeActionKind.Empty]),
+)
+def code_actions(params: types.CodeActionParams):
+    items = []
+    document_uri = params.text_document.uri
+
+    items.append(
+        types.CodeAction(
+            "Bibli: Reload all libraries",
+            kind=types.CodeActionKind.Empty,
+            command=types.Command("ASDASD", "library.reload_all"),
+        )
+    )
+    return items
+
+
+@SERVER.feature(types.TEXT_DOCUMENT_DID_SAVE)
+def did_save(_: BibliLanguageServer, params: types.DidSaveTextDocumentParams):
     if params.text_document.uri == CONFIG_FILE.as_uri():
         logger.info(f"Config file `{CONFIG_FILE}` modified")
 
 
-@SERVER.feature(TEXT_DOCUMENT_DID_OPEN)
-def did_open(ls: BibliLanguageServer, params: DidOpenTextDocumentParams):
+@SERVER.feature(types.TEXT_DOCUMENT_DID_OPEN)
+def did_open(ls: BibliLanguageServer, params: types.DidOpenTextDocumentParams):
     """Parse each document when it is opened"""
     doc = ls.workspace.get_text_document(params.text_document.uri)
     ls.diagnose(doc)
 
     for uri, (version, diagnostics) in ls.diagnostics.items():
         ls.text_document_publish_diagnostics(
-            PublishDiagnosticsParams(uri=uri, version=version, diagnostics=diagnostics)
+            types.PublishDiagnosticsParams(
+                uri=uri, version=version, diagnostics=diagnostics
+            )
         )
 
 
-@SERVER.feature(TEXT_DOCUMENT_DID_CHANGE)
-def did_change(ls: BibliLanguageServer, params: DidOpenTextDocumentParams):
+@SERVER.feature(types.TEXT_DOCUMENT_DID_CHANGE)
+def did_change(ls: BibliLanguageServer, params: types.DidOpenTextDocumentParams):
     """Parse each document when it is changed"""
     doc = ls.workspace.get_text_document(params.text_document.uri)
     ls.diagnose(doc)
 
     for uri, (version, diagnostics) in ls.diagnostics.items():
         ls.text_document_publish_diagnostics(
-            PublishDiagnosticsParams(uri=uri, version=version, diagnostics=diagnostics)
+            types.PublishDiagnosticsParams(
+                uri=uri, version=version, diagnostics=diagnostics
+            )
         )
 
 
-@SERVER.feature(TEXT_DOCUMENT_REFERENCES)
-def find_references(ls: BibliLanguageServer, params: ReferenceParams):
+@SERVER.feature(types.TEXT_DOCUMENT_REFERENCES)
+def find_references(ls: BibliLanguageServer, params: types.ReferenceParams):
     """textDocument/references: Find references of an object through simple ripgrep."""
 
     from ripgrepy import Ripgrepy
@@ -250,11 +243,15 @@ def find_references(ls: BibliLanguageServer, params: ReferenceParams):
             file_uri = "file://" + res["data"]["path"]["text"]
             line_no = res["data"]["line_number"]
             references.append(
-                Location(
+                types.Location(
                     uri=file_uri,
-                    range=Range(
-                        start=Position(line=line_no - 1, character=submatch["start"]),
-                        end=Position(line=line_no - 1, character=submatch["end"] - 1),
+                    range=types.Range(
+                        start=types.Position(
+                            line=line_no - 1, character=submatch["start"]
+                        ),
+                        end=types.Position(
+                            line=line_no - 1, character=submatch["end"] - 1
+                        ),
                     ),
                 )
             )
@@ -262,11 +259,11 @@ def find_references(ls: BibliLanguageServer, params: ReferenceParams):
     return references
 
 
-@SERVER.feature(TEXT_DOCUMENT_DEFINITION)
-def goto_definition(ls: BibliLanguageServer, params: DefinitionParams):
+@SERVER.feature(types.TEXT_DOCUMENT_DEFINITION)
+def goto_definition(ls: BibliLanguageServer, params: types.DefinitionParams):
     """textDocument/definition: Jump to an object's definition."""
 
-    definitions: Definition = []
+    definitions: types.Definition = []
 
     document = ls.workspace.get_text_document(params.text_document.uri)
 
@@ -288,13 +285,13 @@ def goto_definition(ls: BibliLanguageServer, params: DefinitionParams):
                     submatch = res["data"]["submatches"][0]
                     line_no = res["data"]["line_number"]
                     definitions.append(
-                        Location(
+                        types.Location(
                             uri=library_uri,
-                            range=Range(
-                                start=Position(
+                            range=types.Range(
+                                start=types.Position(
                                     line=line_no - 1, character=submatch["start"]
                                 ),
-                                end=Position(
+                                end=types.Position(
                                     line=line_no - 1, character=submatch["end"] - 1
                                 ),
                             ),
@@ -304,8 +301,8 @@ def goto_definition(ls: BibliLanguageServer, params: DefinitionParams):
     return definitions
 
 
-@SERVER.feature(TEXT_DOCUMENT_IMPLEMENTATION)
-def goto_implementation(ls: BibliLanguageServer, params: DefinitionParams):
+@SERVER.feature(types.TEXT_DOCUMENT_IMPLEMENTATION)
+def goto_implementation(ls: BibliLanguageServer, params: types.DefinitionParams):
     """textDocument/definition: Jump to an object's type definition."""
     document = ls.workspace.get_text_document(params.text_document.uri)
 
@@ -317,14 +314,14 @@ def goto_implementation(ls: BibliLanguageServer, params: DefinitionParams):
         entry = library.entries_dict.get(cite)
         if entry and entry.fields_dict.get("url"):
             ls.window_show_document(
-                ShowDocumentParams(entry.fields_dict["url"].value, external=True)
+                types.ShowDocumentParams(entry.fields_dict["url"].value, external=True)
             )
 
     return None
 
 
-@SERVER.feature(TEXT_DOCUMENT_HOVER)
-def hover(ls: BibliLanguageServer, params: HoverParams):
+@SERVER.feature(types.TEXT_DOCUMENT_HOVER)
+def hover(ls: BibliLanguageServer, params: types.HoverParams):
     """textDocument/hover: Display entry metadata."""
 
     pos = params.position
@@ -342,28 +339,28 @@ def hover(ls: BibliLanguageServer, params: HoverParams):
                 entry, CONFIG.hover.doc_format, str(library.path)
             )
 
-            return Hover(
-                contents=MarkupContent(
-                    kind=MarkupKind.Markdown,
+            return types.Hover(
+                contents=types.MarkupContent(
+                    kind=types.MarkupKind.Markdown,
                     value=hover_text,
                 ),
-                range=Range(
-                    start=Position(line=pos.line, character=0),
-                    end=Position(line=pos.line + 1, character=0),
+                range=types.Range(
+                    start=types.Position(line=pos.line, character=0),
+                    end=types.Position(line=pos.line + 1, character=0),
                 ),
             )
     return None
 
 
 @SERVER.feature(
-    TEXT_DOCUMENT_COMPLETION,
-    CompletionOptions(
+    types.TEXT_DOCUMENT_COMPLETION,
+    types.CompletionOptions(
         # resolve_provider=True,
     ),
 )
 def completion(
-    ls: BibliLanguageServer, _: CompletionParams
-) -> Optional[CompletionList]:
+    ls: BibliLanguageServer, _: types.CompletionParams
+) -> Optional[types.CompletionList]:
     """textDocument/completion: Returns completion items."""
 
     prefix = CONFIG.cite.prefix
@@ -382,19 +379,19 @@ def completion(
             if not processed_keys.get(key):
                 processed_keys[key] = True
                 completion_items.append(
-                    CompletionItem(
+                    types.CompletionItem(
                         key,
                         additional_text_edits=text_edits,
-                        kind=CompletionItemKind.Field,
-                        documentation=MarkupContent(
-                            kind=MarkupKind.Markdown,
+                        kind=types.CompletionItemKind.Field,
+                        documentation=types.MarkupContent(
+                            kind=types.MarkupKind.Markdown,
                             value=doc_string,
                         ),
                     )
                 )
 
     return (
-        CompletionList(is_incomplete=False, items=completion_items)
+        types.CompletionList(is_incomplete=False, items=completion_items)
         if completion_items
         else None
     )
