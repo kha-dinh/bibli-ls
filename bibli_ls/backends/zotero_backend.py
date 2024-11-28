@@ -7,13 +7,7 @@ from pathlib import Path
 from bibtexparser import bibtexparser
 from bibtexparser.library import Library
 from bibtexparser.middlewares.names import List
-from lsprotocol.types import (
-    WorkDoneProgressBegin,
-    WorkDoneProgressEnd,
-    WorkDoneProgressReport,
-)
 from pygls.lsp.server import LanguageServer
-from pygls.progress import Progress
 from pyzotero.zotero import Zotero
 
 from bibli_ls.backends.backend import BibliBackend
@@ -48,7 +42,6 @@ class ZoteroBackend(BibliBackend):
         count = self._zot.count_items()
         loaded = 0
         limit = 100
-        total_entries = 0
 
         show_message(
             self._ls,
@@ -78,11 +71,10 @@ class ZoteroBackend(BibliBackend):
             for entry in lib.entries_dict.values():
                 if entry.fields_dict.get("author") and entry.fields_dict.get("title"):
                     library.add(entry)
-                    total_entries += 1
 
             self.load_progress_update(self._zot.library_id, loaded, count)
 
-        self.load_progress_done(total_entries, self._zot.library_id)
+        self.load_progress_done(loaded, self._zot.library_id)
 
         pool.close()
         pool.join()

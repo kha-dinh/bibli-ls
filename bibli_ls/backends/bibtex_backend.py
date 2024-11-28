@@ -8,7 +8,6 @@ from pyzotero.zotero import bibtexparser
 from bibli_ls.backends.backend import BibliBackend
 from bibli_ls.bibli_config import BackendConfig
 from bibli_ls.database import BibliLibrary
-from bibli_ls.utils import show_message
 
 logger = logging.getLogger(__name__)
 
