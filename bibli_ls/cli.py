@@ -1,5 +1,4 @@
 import argparse
-from importlib.metadata import version
 import logging
 import sys
 from pathlib import Path
@@ -15,9 +14,9 @@ try:
 except ValueError:
     pass
 
-__version__ = version("bibli_ls")
 from bibli_ls.bibli_config import BibliTomlConfig
 from bibli_ls.server import SERVER
+from bibli_ls import __version__
 
 
 def cli() -> None:
@@ -96,7 +95,7 @@ Notes:
 
     if args.default_config:
         default_config = BibliTomlConfig()
-        print(tosholi.dumps(default_config))
+        print(tosholi.dumps(default_config))  # type: ignore
         return
 
     if args.tcp and args.ws:
@@ -113,7 +112,7 @@ Notes:
     if args.log_file:
         logging.basicConfig(
             filename=args.log_file,
-            filemode="w",
+            filemode="a",
             level=log_level,
         )
     else:
