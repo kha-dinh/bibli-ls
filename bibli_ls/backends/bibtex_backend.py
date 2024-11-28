@@ -9,6 +9,8 @@ from bibli_ls.backends.backend import BibliBackend
 from bibli_ls.bibli_config import BackendConfig
 from bibli_ls.database import BibliLibrary
 
+logger = logging.getLogger(__name__)
+
 
 class BibfileBackend(BibliBackend):
     def __init__(self, config: BackendConfig, ls: LanguageServer) -> None:
@@ -16,7 +18,7 @@ class BibfileBackend(BibliBackend):
 
         """TODO: Get all bibtex files found if config is not given."""
         if config.bibfiles == []:
-            logging.warning("No bibfile found.", MessageType.Warning)
+            logger.warning("No bibfile found.", MessageType.Warning)
 
     def get_libraries(self):
         libraries = []
@@ -27,7 +29,7 @@ class BibfileBackend(BibliBackend):
             with open(bibfile_path, "r") as bibtex_file:
                 library: Library = bibtexparser.parse_string(bibtex_file.read())
                 len = library.entries.__len__()
-                logging.info(f"Loaded {len} entries from `{bibfile_path}`")
+                logger.info(f"Loaded {len} entries from `{bibfile_path}`")
                 libraries.append(
                     BibliLibrary(
                         library.blocks,

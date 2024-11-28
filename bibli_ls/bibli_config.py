@@ -1,6 +1,9 @@
 import logging
 from dataclasses import dataclass, field
 
+logger = logging.getLogger(__name__)
+
+
 """Default header"""
 DEFAULT_HEADER_FORMAT = [
     "# `{entry_type}` {title}",
@@ -144,7 +147,7 @@ class BibliTomlConfig:
 
     def check_expected(self, field, value) -> bool:
         if value not in EXPECTED_VALUES[field]:
-            logging.error(
+            logger.error(
                 f"Unexpected value in {field}: {value}",
             )
             return False

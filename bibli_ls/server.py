@@ -51,6 +51,8 @@ from .bibli_config import BibliTomlConfig
 from .database import BibliBibDatabase
 from .utils import build_doc_string, cite_at_position, show_message
 
+logger = logging.getLogger(__name__)
+
 CONFIG = BibliTomlConfig()
 CONFIG_FILE: Path
 DATABASE = BibliBibDatabase()
@@ -72,7 +74,8 @@ def try_load_configs_file(ls: LanguageServer, root_path=None, config_file=None):
     try:
         global CONFIG, CONFIG_FILE
         f = open(config_file, "rb")
-        CONFIG = tosholi.load(BibliTomlConfig, f)
+
+        CONFIG = tosholi.load(BibliTomlConfig, f)  # type: ignore
         CONFIG_FILE = config_file
         show_message(ls, f"Loaded configs from `{config_file}`")
     except NameError as e:
@@ -85,7 +88,7 @@ def try_load_configs_file(ls: LanguageServer, root_path=None, config_file=None):
         show_message(ls, "No config file found, using default settings\n")
 
     if not CONFIG.sanitize():
-        logging.error("Invalid config")
+        logger.error("Invalid config")
 
 
 def load_libraries(ls: LanguageServer):
@@ -188,9 +191,9 @@ SERVER = BibliLanguageServer(
 
 
 @SERVER.feature(TEXT_DOCUMENT_DID_SAVE)
-def did_save(ls: BibliLanguageServer, params: DidSaveTextDocumentParams):
+def did_save(_: BibliLanguageServer, params: DidSaveTextDocumentParams):
     if params.text_document.uri == CONFIG_FILE.as_uri():
-        logging.info(f"Config file `{CONFIG_FILE}` modified")
+        logger.info(f"Config file `{CONFIG_FILE}` modified")
 
 
 @SERVER.feature(TEXT_DOCUMENT_DID_OPEN)
@@ -233,8 +236,10 @@ def find_references(ls: BibliLanguageServer, params: ReferenceParams):
     if not cite:
         return
 
+    search_string = CONFIG.cite.prefix + cite
+
     # Include prefix for more accuracy
-    rg = Ripgrepy(CONFIG.cite.prefix + cite, root_path)
+    rg = Ripgrepy(search_string, root_path)
     result = rg.with_filename().json().run().as_dict
     references = []
 
