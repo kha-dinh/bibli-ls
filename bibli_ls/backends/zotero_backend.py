@@ -1,7 +1,7 @@
 import logging
 import multiprocessing
-import os
 from multiprocessing.pool import AsyncResult
+import os
 from pathlib import Path
 
 from bibtexparser import bibtexparser
@@ -11,6 +11,7 @@ from pygls.lsp.server import LanguageServer
 from pyzotero.zotero import Zotero
 
 from bibli_ls.backends.backend import BibliBackend
+from bibli_ls.backends.bibtex_backend import BibfileBackend
 from bibli_ls.bibli_config import BackendConfig
 from bibli_ls.database import BibliLibrary
 from bibli_ls.utils import show_message
@@ -36,61 +37,78 @@ class ZoteroBackend(BibliBackend):
         )
         self._zot = Zotero(config.library_id, config.library_type, config.api_key)
 
-    def get_libraries(
-        self,
-    ):
+    def get_cache_file_path(self) -> str | None:
+        if not self._ls.workspace.root_path:
+            return None
+
+        filename = f".{self._name}_{self._zot.library_type}_{self._zot.library_id}.bib"
+        return os.path.join(self._ls.workspace.root_path, filename)
+
+    def get_libraries_cached(self) -> List[BibliLibrary]:
+        cache_file = self.get_cache_file_path()
+
+        if cache_file and os.path.exists(Path(cache_file)):
+            show_message(self._ls, f"Loading from cached library `{cache_file}`")
+            bibtex_backend = BibfileBackend(
+                "cache_file",
+                BackendConfig(backend_type="bibfile", bibfiles=[cache_file]),
+                self._ls,
+            )
+            return bibtex_backend.get_libraries()
+        else:
+            return self.get_libraries()
+
+    def get_libraries(self):
         count = self._zot.count_items()
         loaded = 0
         limit = 100
 
         show_message(
             self._ls,
-            f"Fetching online `{self._zot.library_type}` library from `{self._zot.library_id}`",
+            f"Fetching `{count}` items from `{self._zot.library_type}` library `{self._zot.library_id}`",
         )
 
-        library = Library()
-        pool = multiprocessing.Pool(4)
+        self.library = BibliLibrary(path=self.get_cache_file_path())
+        # pool = multiprocessing.Pool(4)
 
         self.load_progress_begin(self._zot.library_id)
 
-        results: List[AsyncResult] = []
+        # results: List[AsyncResult] = []
         for i in range(0, count, limit):
-            results.append(
-                pool.apply_async(
-                    self._zot.items,
-                    kwds={"start": i, "limit": limit, "content": "bibtex"},
-                )
-            )
+            # results.append(
+            #     pool.apply(
+            #         self._zot.items,
+            #         kwds={"start": i, "limit": limit, "content": "bibtex"},
+            #     )
+            # )
 
-        for r in results:
-            items = r.get()
+            # for r in results:
+            items = self._zot.items(start=i, limit=limit, content="bibtex")
+            # items = r.get()
+            logger.error(items)
             loaded += len(items)
             items_str = "\n".join(items)
-            lib = bibtexparser.parse_string(items_str)
+            bibtexparser.parse_string(items_str, library=self.library)
 
-            for entry in lib.entries_dict.values():
-                if entry.fields_dict.get("author") and entry.fields_dict.get("title"):
-                    library.add(entry)
+            # for entry in lib.entries_dict.values():
+            #     if not entry.fields_dict.get("author") and not entry.fields_dict.get("title"):
 
             self.load_progress_update(self._zot.library_id, loaded, count)
 
         self.load_progress_done(loaded, self._zot.library_id)
 
-        pool.close()
-        pool.join()
+        # pool.close()
+        # pool.join()
+        # for r in results:
+        #     show_message(self._ls, "testA")
+        # items = r.get()
 
+        self.load_progress_done(loaded, self._zot.library_id)
+
+        cache_file = self.get_cache_file_path()
         # Writing to file
-        filename = f".{self._name}_{self._zot.library_type}_{self._zot.library_id}.bib"
-        root_path = self._ls.workspace.root_path
-        cache_file = None
-        if root_path:
-            cache_file = os.path.join(root_path, filename)
+        if cache_file:
             logger.info(f"Writing to bibfile to `{cache_file}`")
-            bibtexparser.write_file(cache_file, library)
+            bibtexparser.write_file(cache_file, self.library)
 
-        return [
-            BibliLibrary(
-                library.blocks,
-                Path(cache_file) if cache_file else None,
-            )
-        ]
+        return [self.library]

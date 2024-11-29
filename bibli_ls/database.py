@@ -15,13 +15,16 @@ class BibliLibrary(Library):
 
 
 class BibliBibDatabase:
-    libraries: List[BibliLibrary]
+    libraries: dict[str, list[BibliLibrary]]
 
-    def __init__(self, libraries: List[BibliLibrary] = []) -> None:
-        self.libraries = libraries
+    def __init__(self) -> None:
+        self.libraries = {}
 
-    def find_in_libraries(self, key: str) -> Entry | None:
-        for lib in self.libraries:
-            if lib.entries_dict.__contains__(key):
-                return lib.entries_dict[key]
-        return None
+    def find_in_libraries(
+        self, key: str
+    ) -> tuple[Entry, BibliLibrary] | tuple[None, None]:
+        for libs in self.libraries.values():
+            for lib in libs:
+                if lib.entries_dict.__contains__(key):
+                    return lib.entries_dict[key], lib
+        return None, None

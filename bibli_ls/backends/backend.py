@@ -56,4 +56,3 @@ class BibliBackend:
             self._name,
             WorkDoneProgressEnd(message="Done"),
         )
-        del self._progress

@@ -57,19 +57,21 @@ def try_load_configs_file(ls: LanguageServer, root_path=None, config_file=None):
         logger.error("Invalid config")
 
 
-def load_libraries(ls: LanguageServer):
-    global DATABASE
-    DATABASE.libraries.clear()
+def load_libraries(ls: LanguageServer, use_cached: bool = True):
+    global DATABASE, CONFIG
     for k, v in CONFIG.backends.items():
         show_message(
             ls,
             f"Processing backend `{k}` type `{v.backend_type}`",
         )
         if v.backend_type == "zotero_api":
-            DATABASE.libraries += ZoteroBackend(k, v, ls).get_libraries()
+            if not use_cached:
+                DATABASE.libraries[k] = ZoteroBackend(k, v, ls).get_libraries()
+            else:
+                DATABASE.libraries[k] = ZoteroBackend(k, v, ls).get_libraries_cached()
 
         elif v.backend_type == "bibfile":
-            DATABASE.libraries += BibfileBackend(k, v, ls).get_libraries()
+            DATABASE.libraries[k] = BibfileBackend(k, v, ls).get_libraries()
         else:
             show_message(
                 ls,
@@ -156,9 +158,10 @@ SERVER = BibliLanguageServer(
 )
 
 
+@SERVER.thread()
 @SERVER.command("library.reload_all")
-async def reload_all(ls: BibliLanguageServer, *args):
-    load_libraries(ls)
+def reload_all(ls: BibliLanguageServer, *args):
+    load_libraries(ls, False)
 
 
 @SERVER.feature(
@@ -271,32 +274,29 @@ def goto_definition(ls: BibliLanguageServer, params: types.DefinitionParams):
     if not cite:
         return
 
-    for library in DATABASE.libraries:
-        entry = library.entries_dict.get(cite)
-        library_uri = f"file://{library.path}"
+    (entry, library) = DATABASE.find_in_libraries(cite)
+    if entry and library and library.path is not None:
+        from ripgrepy import Ripgrepy
 
-        if entry and library.path:
-            from ripgrepy import Ripgrepy
-
-            rg = Ripgrepy(cite, str(library.path))
-            result = rg.with_filename().json().run().as_dict
-            for res in result:
-                if res["type"] == "match":
-                    submatch = res["data"]["submatches"][0]
-                    line_no = res["data"]["line_number"]
-                    definitions.append(
-                        types.Location(
-                            uri=library_uri,
-                            range=types.Range(
-                                start=types.Position(
-                                    line=line_no - 1, character=submatch["start"]
-                                ),
-                                end=types.Position(
-                                    line=line_no - 1, character=submatch["end"] - 1
-                                ),
+        rg = Ripgrepy(cite, str(library.path))
+        result = rg.with_filename().json().run().as_dict
+        for res in result:
+            if res["type"] == "match":
+                submatch = res["data"]["submatches"][0]
+                line_no = res["data"]["line_number"]
+                definitions.append(
+                    types.Location(
+                        uri=library.path.as_uri(),
+                        range=types.Range(
+                            start=types.Position(
+                                line=line_no - 1, character=submatch["start"]
                             ),
-                        )
+                            end=types.Position(
+                                line=line_no - 1, character=submatch["end"] - 1
+                            ),
+                        ),
                     )
+                )
 
     return definitions
 
@@ -310,7 +310,9 @@ def goto_implementation(ls: BibliLanguageServer, params: types.DefinitionParams)
     if not cite:
         return
 
-    for library in DATABASE.libraries:
+    (entry, library) = DATABASE.find_in_libraries(cite)
+    if entry and library:
+        # for library in DATABASE.libraries:
         entry = library.entries_dict.get(cite)
         if entry and entry.fields_dict.get("url"):
             ls.window_show_document(
@@ -332,23 +334,20 @@ def hover(ls: BibliLanguageServer, params: types.HoverParams):
     if not cite:
         return None
 
-    for library in DATABASE.libraries:
-        entry = library.entries_dict.get(cite)
-        if entry:
-            hover_text = build_doc_string(
-                entry, CONFIG.hover.doc_format, str(library.path)
-            )
+    (entry, library) = DATABASE.find_in_libraries(cite)
+    if entry and library and library.path:
+        hover_text = build_doc_string(entry, CONFIG.hover.doc_format, str(library.path))
 
-            return types.Hover(
-                contents=types.MarkupContent(
-                    kind=types.MarkupKind.Markdown,
-                    value=hover_text,
-                ),
-                range=types.Range(
-                    start=types.Position(line=pos.line, character=0),
-                    end=types.Position(line=pos.line + 1, character=0),
-                ),
-            )
+        return types.Hover(
+            contents=types.MarkupContent(
+                kind=types.MarkupKind.Markdown,
+                value=hover_text,
+            ),
+            range=types.Range(
+                start=types.Position(line=pos.line, character=0),
+                end=types.Position(line=pos.line + 1, character=0),
+            ),
+        )
     return None
 
 
@@ -367,28 +366,30 @@ def completion(
     completion_items = []
 
     processed_keys = {}
-    for library in DATABASE.libraries:
-        for k, entry in library.entries_dict.items():
-            key = prefix + k
-            text_edits = []
-            doc_string = build_doc_string(
-                entry, CONFIG.completion.doc_format, str(library.path)
-            )
 
-            # Avoid showing duplicated entries
-            if not processed_keys.get(key):
-                processed_keys[key] = True
-                completion_items.append(
-                    types.CompletionItem(
-                        key,
-                        additional_text_edits=text_edits,
-                        kind=types.CompletionItemKind.Field,
-                        documentation=types.MarkupContent(
-                            kind=types.MarkupKind.Markdown,
-                            value=doc_string,
-                        ),
-                    )
+    for libraries in DATABASE.libraries.values():
+        for lib in libraries:
+            for k, entry in lib.entries_dict.items():
+                key = prefix + k
+                text_edits = []
+                doc_string = build_doc_string(
+                    entry, CONFIG.completion.doc_format, str(lib.path)
                 )
+
+                # Avoid showing duplicated entries
+                if not processed_keys.get(key):
+                    processed_keys[key] = True
+                    completion_items.append(
+                        types.CompletionItem(
+                            key,
+                            additional_text_edits=text_edits,
+                            kind=types.CompletionItemKind.Field,
+                            documentation=types.MarkupContent(
+                                kind=types.MarkupKind.Markdown,
+                                value=doc_string,
+                            ),
+                        )
+                    )
 
     return (
         types.CompletionList(is_incomplete=False, items=completion_items)
