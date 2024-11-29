@@ -97,14 +97,14 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
 
         # Register additional trigger characters
         completion_provider = initialize_result.capabilities.completion_provider
-        prefix = CONFIG.cite.prefix
+        trigger = CONFIG.cite.trigger
         if completion_provider:
             if completion_provider.trigger_characters:
                 completion_provider.trigger_characters = list(
                     completion_provider.trigger_characters
-                ).append(prefix)
+                ).append(trigger)
             else:
-                completion_provider.trigger_characters = [prefix]
+                completion_provider.trigger_characters = [trigger]
 
         return initialize_result
 
@@ -371,7 +371,7 @@ def completion(
 ) -> Optional[types.CompletionList]:
     """textDocument/completion: Returns completion items."""
 
-    prefix = CONFIG.cite.prefix
+    trigger = CONFIG.cite.trigger
     completion_items = []
 
     processed_keys = {}
@@ -379,7 +379,7 @@ def completion(
     for libraries in DATABASE.libraries.values():
         for lib in libraries:
             for k, entry in lib.entries_dict.items():
-                key = prefix + k
+                key = trigger + k
                 text_edits = []
                 doc_string = build_doc_string(
                     entry, CONFIG.completion.doc_format, str(lib.path)

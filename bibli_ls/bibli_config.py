@@ -17,11 +17,18 @@ DEFAULT_FOOTER_FORMAT = [
     "\n" + "\t" * 20 + "from `{bibfile}`",
 ]
 
-"""Default prefix"""
-DEFAULT_CITE_PREFIX = "@"
 
-"""Default regex string"""
-DEFAULT_CITE_REGEX_STR = r"@([A-Za-z_0-9]+)\b"
+"""Default cite trigger"""
+DEFAULT_CITE_TRIGGER = "@"
+
+"""Default prefix"""
+DEFAULT_CITE_PREFIX = rf"\[{DEFAULT_CITE_TRIGGER}"
+
+"""Default postfix"""
+DEFAULT_CITE_POSTFIX = r"\]"
+
+"""Default regex string (to be automatically updated prefix/postfix is set)"""
+DEFAULT_CITE_REGEX_STR = rf"{DEFAULT_CITE_PREFIX}([A-Za-z_0-9]+){DEFAULT_CITE_POSTFIX}"
 
 """Default word wrap"""
 DEFAULT_WRAP = 80
@@ -69,8 +76,19 @@ class CiteConfig:
     Configs for citation.
     """
 
+    trigger: str = DEFAULT_CITE_TRIGGER
+    """Trigger completion."""
+
     prefix: str = DEFAULT_CITE_PREFIX
-    """Prefix to begin the citation."""
+    r"""
+    Prefix to begin the citation (must be updated if trigger is updated). 
+    Brackets (`([{`) should be escaped (`\(\[\{`).
+    """
+
+    postfix: str = DEFAULT_CITE_POSTFIX
+    r"""Prefix to begin the citation.
+    Brackets (`])}`) should be escaped (`\]\)\}`).
+    """
 
     regex: str = DEFAULT_CITE_REGEX_STR
     """Regex string to find the citation."""
@@ -169,4 +187,10 @@ class BibliTomlConfig:
             "doc_format.format", self.completion.doc_format.format
         )
 
+        # Recompute cite regex
+        if (
+            self.cite.prefix != DEFAULT_CITE_PREFIX
+            or self.cite.postfix != DEFAULT_CITE_POSTFIX
+        ):
+            self.cite.regex = rf"{self.cite.prefix}([A-Za-z_0-9]+){self.cite.postfix}"
         return valid

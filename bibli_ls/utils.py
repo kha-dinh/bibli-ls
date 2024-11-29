@@ -29,7 +29,10 @@ def cite_at_position(
     # TODO: Check if encapsulated in "[]"
     for match in re.finditer(config.cite.regex, line):
         (start, end) = match.span(1)
-        if start <= position.character and end >= position.character:
+        if (
+            start - len(config.cite.prefix) <= position.character
+            and end + len(config.cite.postfix) >= position.character
+        ):
             return match.group(1)
 
     return None

@@ -4,7 +4,9 @@
   * [logger](#bibli_config.logger)
   * [DEFAULT\_HEADER\_FORMAT](#bibli_config.DEFAULT_HEADER_FORMAT)
   * [DEFAULT\_FOOTER\_FORMAT](#bibli_config.DEFAULT_FOOTER_FORMAT)
+  * [DEFAULT\_CITE\_TRIGGER](#bibli_config.DEFAULT_CITE_TRIGGER)
   * [DEFAULT\_CITE\_PREFIX](#bibli_config.DEFAULT_CITE_PREFIX)
+  * [DEFAULT\_CITE\_POSTFIX](#bibli_config.DEFAULT_CITE_POSTFIX)
   * [DEFAULT\_CITE\_REGEX\_STR](#bibli_config.DEFAULT_CITE_REGEX_STR)
   * [DEFAULT\_WRAP](#bibli_config.DEFAULT_WRAP)
   * [DocFormatingConfig](#bibli_config.DocFormatingConfig)
@@ -15,7 +17,9 @@
     * [header\_format](#bibli_config.DocFormatingConfig.header_format)
     * [footer\_format](#bibli_config.DocFormatingConfig.footer_format)
   * [CiteConfig](#bibli_config.CiteConfig)
+    * [trigger](#bibli_config.CiteConfig.trigger)
     * [prefix](#bibli_config.CiteConfig.prefix)
+    * [postfix](#bibli_config.CiteConfig.postfix)
     * [regex](#bibli_config.CiteConfig.regex)
   * [HoverConfig](#bibli_config.HoverConfig)
     * [doc\_format](#bibli_config.HoverConfig.doc_format)
@@ -68,6 +72,16 @@ DEFAULT_FOOTER_FORMAT = [
     "───────────────────────────────────────────────────────────────────── ...
 ```
 
+Default cite trigger
+
+<a id="bibli_config.DEFAULT_CITE_TRIGGER"></a>
+
+#### DEFAULT\_CITE\_TRIGGER
+
+```python
+DEFAULT_CITE_TRIGGER = "@"
+```
+
 Default prefix
 
 <a id="bibli_config.DEFAULT_CITE_PREFIX"></a>
@@ -75,17 +89,27 @@ Default prefix
 #### DEFAULT\_CITE\_PREFIX
 
 ```python
-DEFAULT_CITE_PREFIX = "@"
+DEFAULT_CITE_PREFIX = rf"\[{DEFAULT_CITE_TRIGGER}"
 ```
 
-Default regex string
+Default postfix
+
+<a id="bibli_config.DEFAULT_CITE_POSTFIX"></a>
+
+#### DEFAULT\_CITE\_POSTFIX
+
+```python
+DEFAULT_CITE_POSTFIX = r"\]"
+```
+
+Default regex string (to be automatically updated prefix/postfix is set)
 
 <a id="bibli_config.DEFAULT_CITE_REGEX_STR"></a>
 
 #### DEFAULT\_CITE\_REGEX\_STR
 
 ```python
-DEFAULT_CITE_REGEX_STR = r"@([A-Za-z_0-9]+)\b"
+DEFAULT_CITE_REGEX_STR = rf"{DEFAULT_CITE_PREFIX}([A-Za-z_0-9]+){DEFAULT_CITE_POSTFIX}"
 ```
 
 Default word wrap
@@ -182,6 +206,16 @@ class CiteConfig()
 
 Configs for citation.
 
+<a id="bibli_config.CiteConfig.trigger"></a>
+
+#### trigger: `str`
+
+```python
+trigger = DEFAULT_CITE_TRIGGER
+```
+
+Trigger completion.
+
 <a id="bibli_config.CiteConfig.prefix"></a>
 
 #### prefix: `str`
@@ -190,7 +224,19 @@ Configs for citation.
 prefix = DEFAULT_CITE_PREFIX
 ```
 
+Prefix to begin the citation (must be updated if trigger is updated).
+Brackets (`([{`) should be escaped (`\(\[\{`).
+
+<a id="bibli_config.CiteConfig.postfix"></a>
+
+#### postfix: `str`
+
+```python
+postfix = DEFAULT_CITE_POSTFIX
+```
+
 Prefix to begin the citation.
+Brackets (`])}`) should be escaped (`\]\)\}`).
 
 <a id="bibli_config.CiteConfig.regex"></a>
 
