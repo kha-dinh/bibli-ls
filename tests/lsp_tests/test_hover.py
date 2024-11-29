@@ -1,4 +1,4 @@
-"""Tests for definition requests."""
+"""Tests for hover requests."""
 
 import pytest
 from hamcrest import assert_that, contains_string

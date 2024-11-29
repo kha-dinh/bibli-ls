@@ -1,4 +1,4 @@
-"""Tests for definition requests."""
+"""Tests for completion requests."""
 
 import pytest
 from hamcrest import assert_that, is_
@@ -16,7 +16,7 @@ from tests.utils import as_uri
 
 @pytest.mark.asyncio
 async def test_completion():
-    """Test that definition points to the correct entry in bibfile"""
+    """Test that completion points to the correct entry in bibfile"""
 
     async with BibliClient(TEST_DATA) as client:
         uri = as_uri(TEST_DATA / "definition_test.md")

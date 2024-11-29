@@ -4,4 +4,4 @@ doc:
 	python ./bibli_ls/cli.py --default-config > docs/default-config.toml
 
 test:
-	python3 -m pytest
+	pip install . && python3 -m pytest

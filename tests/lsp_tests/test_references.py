@@ -1,4 +1,4 @@
-"""Tests for definition requests."""
+"""Tests for reference requests."""
 
 import pytest
 from hamcrest import assert_that, is_in
