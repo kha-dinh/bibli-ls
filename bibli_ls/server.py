@@ -131,7 +131,7 @@ class BibliLanguageServer(LanguageServer):
         for idx, line in enumerate(document.lines):
             for match in re.finditer(CONFIG.cite.regex, line):
                 key = match.group(1)
-                if DATABASE.find_in_libraries(key):
+                if DATABASE.find_in_libraries(key) != (None, None):
                     continue
 
                 (start, end) = match.span(1)
@@ -320,6 +320,14 @@ def goto_implementation(ls: BibliLanguageServer, params: types.DefinitionParams)
             )
 
     return None
+
+
+@SERVER.feature(types.TEXT_DOCUMENT_DIAGNOSTIC)
+def diagnostic(ls: BibliLanguageServer, params: types.DocumentDiagnosticParams):
+    doc = ls.workspace.get_text_document(params.text_document.uri)
+    ls.diagnose(doc)
+
+    return types.RelatedFullDocumentDiagnosticReport(ls.diagnostics[doc.uri][1])
 
 
 @SERVER.feature(types.TEXT_DOCUMENT_HOVER)
