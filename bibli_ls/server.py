@@ -250,7 +250,8 @@ def find_references(ls: BibliLanguageServer, params: types.ReferenceParams):
                     uri=file_uri,
                     range=types.Range(
                         start=types.Position(
-                            line=line_no - 1, character=submatch["start"]
+                            line=line_no - 1,
+                            character=submatch["start"],
                         ),
                         end=types.Position(
                             line=line_no - 1, character=submatch["end"] - 1
@@ -286,7 +287,7 @@ def goto_definition(ls: BibliLanguageServer, params: types.DefinitionParams):
                 line_no = res["data"]["line_number"]
                 definitions.append(
                     types.Location(
-                        uri=library.path.as_uri(),
+                        uri=Path(library.path).as_uri(),
                         range=types.Range(
                             start=types.Position(
                                 line=line_no - 1, character=submatch["start"]
