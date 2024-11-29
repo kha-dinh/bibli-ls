@@ -1,11 +1,8 @@
 import logging
-import multiprocessing
-from multiprocessing.pool import AsyncResult
 import os
 from pathlib import Path
 
 from bibtexparser import bibtexparser
-from bibtexparser.library import Library
 from bibtexparser.middlewares.names import List
 from pygls.lsp.server import LanguageServer
 from pyzotero.zotero import Zotero
@@ -69,46 +66,27 @@ class ZoteroBackend(BibliBackend):
         )
 
         self.library = BibliLibrary(path=self.get_cache_file_path())
-        # pool = multiprocessing.Pool(4)
 
         self.load_progress_begin(self._zot.library_id)
 
-        # results: List[AsyncResult] = []
         for i in range(0, count, limit):
-            # results.append(
-            #     pool.apply(
-            #         self._zot.items,
-            #         kwds={"start": i, "limit": limit, "content": "bibtex"},
-            #     )
-            # )
-
-            # for r in results:
             items = self._zot.items(start=i, limit=limit, content="bibtex")
-            # items = r.get()
             logger.error(items)
             loaded += len(items)
             items_str = "\n".join(items)
             bibtexparser.parse_string(items_str, library=self.library)
-
-            # for entry in lib.entries_dict.values():
-            #     if not entry.fields_dict.get("author") and not entry.fields_dict.get("title"):
-
             self.load_progress_update(self._zot.library_id, loaded, count)
 
         self.load_progress_done(loaded, self._zot.library_id)
 
-        # pool.close()
-        # pool.join()
-        # for r in results:
-        #     show_message(self._ls, "testA")
-        # items = r.get()
+        # TODO: Filter out the empty entries
 
         self.load_progress_done(loaded, self._zot.library_id)
 
         cache_file = self.get_cache_file_path()
         # Writing to file
         if cache_file:
-            logger.info(f"Writing to bibfile to `{cache_file}`")
+            show_message(self._ls, f"Writing to bibfile to `{cache_file}`")
             bibtexparser.write_file(cache_file, self.library)
 
         return [self.library]
