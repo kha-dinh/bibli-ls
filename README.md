@@ -100,7 +100,7 @@ Currently, Bibli supports `bibfile` and `zotero_api` backends.
 
 - `bibfile` backend loads the library from a local bibtex file.
 
-- `zotero_api` backend connects directly to your Zotero web library, removing the need for maintaining separated bibfiles.
+- `zotero_api` backend connects directly to your Zotero web library, removing the need for maintaining separated bibfiles. It cache the results in a bibfile named `.{backend name}_{library type}_{library id}.bib`. Run the command LSP `library.reload_all` to refetch the online content.
 
   - [More on setting up citation keys for online libraries](/docs/custom-cite-keys.md)
 

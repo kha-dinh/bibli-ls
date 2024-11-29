@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bibli_ls"
-version = "0.1.5.3"
+version = "0.1.6.0"
 authors = [{ name = "Kha Dinh", email = "dalo2903@gmail.com" }]
 description = "A simple LSP server for your bibliographies"
 readme = "README.md"
@@ -28,6 +28,7 @@ classifiers = [
 
 [project.optional-dependencies]
 test = ["pytest==8.3.3", "pyhamcrest==2.1.0"]
+doc = ["pydoc-markdown==4.8.2"]
 
 [project.urls]
 Homepage = "https://github.com/kha-dinh/bibli-ls"
@@ -42,8 +43,8 @@ testpaths = ["tests"]
 
 [[tool.pydoc-markdown.loaders]]
 type = "python"
-modules = ["bibli_ls.bibli_config"]
-search_path = ["../bibli-ls/"]
+modules = ["bibli_config"]
+search_path = ["./bibli_ls/"]
 
 [[tool.pydoc-markdown.processors]]
 type = "google"
