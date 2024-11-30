@@ -7,6 +7,7 @@
   * [DEFAULT\_CITE\_TRIGGER](#bibli_config.DEFAULT_CITE_TRIGGER)
   * [DEFAULT\_CITE\_PREFIX](#bibli_config.DEFAULT_CITE_PREFIX)
   * [DEFAULT\_CITE\_POSTFIX](#bibli_config.DEFAULT_CITE_POSTFIX)
+  * [DEFAULT\_CITE\_SEPARATOR](#bibli_config.DEFAULT_CITE_SEPARATOR)
   * [DEFAULT\_CITE\_REGEX\_STR](#bibli_config.DEFAULT_CITE_REGEX_STR)
   * [DEFAULT\_WRAP](#bibli_config.DEFAULT_WRAP)
   * [DocFormatingConfig](#bibli_config.DocFormatingConfig)
@@ -20,6 +21,7 @@
     * [trigger](#bibli_config.CiteConfig.trigger)
     * [prefix](#bibli_config.CiteConfig.prefix)
     * [postfix](#bibli_config.CiteConfig.postfix)
+    * [separator](#bibli_config.CiteConfig.separator)
     * [regex](#bibli_config.CiteConfig.regex)
   * [HoverConfig](#bibli_config.HoverConfig)
     * [doc\_format](#bibli_config.HoverConfig.doc_format)
@@ -89,7 +91,7 @@ Default prefix
 #### DEFAULT\_CITE\_PREFIX
 
 ```python
-DEFAULT_CITE_PREFIX = rf"\[{DEFAULT_CITE_TRIGGER}"
+DEFAULT_CITE_PREFIX = r"\["
 ```
 
 Default postfix
@@ -102,14 +104,24 @@ Default postfix
 DEFAULT_CITE_POSTFIX = r"\]"
 ```
 
-Default regex string (to be automatically updated prefix/postfix is set)
+Default separator
+
+<a id="bibli_config.DEFAULT_CITE_SEPARATOR"></a>
+
+#### DEFAULT\_CITE\_SEPARATOR
+
+```python
+DEFAULT_CITE_SEPARATOR = r","
+```
+
+Default cite regex string
 
 <a id="bibli_config.DEFAULT_CITE_REGEX_STR"></a>
 
 #### DEFAULT\_CITE\_REGEX\_STR
 
 ```python
-DEFAULT_CITE_REGEX_STR = rf"{DEFAULT_CITE_PREFIX}([A-Za-z_0-9]+){DEFAULT_CITE_POSTFIX}"
+DEFAULT_CITE_REGEX_STR = rf"{DEFAULT_CITE_PREFIX}([\w\W]+?){DEFAULT_CITE_POSTFIX}"
 ```
 
 Default word wrap
@@ -236,6 +248,17 @@ postfix = DEFAULT_CITE_POSTFIX
 ```
 
 Prefix to begin the citation.
+Brackets (`])}`) should be escaped (`\]\)\}`).
+
+<a id="bibli_config.CiteConfig.separator"></a>
+
+#### separator: `str`
+
+```python
+separator = DEFAULT_CITE_SEPARATOR
+```
+
+separator between citations
 Brackets (`])}`) should be escaped (`\]\)\}`).
 
 <a id="bibli_config.CiteConfig.regex"></a>
