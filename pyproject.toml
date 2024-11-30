@@ -27,7 +27,7 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest==8.3.3", "pyhamcrest==2.1.0"]
+test = ["pytest==8.3.3", "pytest-asyncio", "pyhamcrest==2.1.0"]
 doc = ["pydoc-markdown==4.8.2"]
 
 [project.urls]
