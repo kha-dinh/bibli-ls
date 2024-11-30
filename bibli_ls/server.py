@@ -15,7 +15,7 @@ from bibli_ls.backends.zotero_backend import ZoteroBackend
 from . import __version__
 from .bibli_config import BibliTomlConfig
 from .database import BibliBibDatabase
-from .utils import build_doc_string, cite_at_position, show_message
+from .utils import build_doc_string, cite_at_position, remove_trigger, show_message
 
 logger = logging.getLogger(__name__)
 
@@ -130,23 +130,32 @@ class BibliLanguageServer(LanguageServer):
 
         for idx, line in enumerate(document.lines):
             for match in re.finditer(CONFIG.cite.regex, line):
-                key = match.group(1)
-                if DATABASE.find_in_libraries(key) != (None, None):
-                    continue
+                # key = match.group(1)
+                (cite_start, cite_end) = match.span(1)
+                keys = match.group(1).split(CONFIG.cite.separator)
+                keys = [k.strip() for k in keys if k.strip()[0] == CONFIG.cite.trigger]
+                key_pos = [line.find(k, cite_start, cite_end) for k in keys]
 
-                (start, end) = match.span(1)
-                message = f'Item "{key}" does not exist in library'
-                severity = types.DiagnosticSeverity.Warning
-                diagnostics.append(
-                    types.Diagnostic(
-                        message=message,
-                        severity=severity,
-                        range=types.Range(
-                            start=types.Position(line=idx, character=start),
-                            end=types.Position(line=idx, character=end),
-                        ),
+                for key, pos in zip(keys, key_pos):
+                    if DATABASE.find_in_libraries(remove_trigger(key, CONFIG)) != (
+                        None,
+                        None,
+                    ):
+                        continue
+
+                    (start, end) = match.span(1)
+                    message = f'Item "{remove_trigger(key, CONFIG)}" does not exist in library'
+                    severity = types.DiagnosticSeverity.Warning
+                    diagnostics.append(
+                        types.Diagnostic(
+                            message=message,
+                            severity=severity,
+                            range=types.Range(
+                                start=types.Position(line=idx, character=pos),
+                                end=types.Position(line=idx, character=pos + len(key)),
+                            ),
+                        )
                     )
-                )
 
         self.diagnostics[document.uri] = (document.version, diagnostics)
 
@@ -232,10 +241,8 @@ def find_references(ls: BibliLanguageServer, params: types.ReferenceParams):
     if not cite:
         return
 
-    search_string = CONFIG.cite.prefix + cite
-
     # Include prefix for more accuracy
-    rg = Ripgrepy(search_string, root_path)
+    rg = Ripgrepy(cite, root_path)
     result = rg.with_filename().json().run().as_dict
     references = []
 
@@ -275,11 +282,13 @@ def goto_definition(ls: BibliLanguageServer, params: types.DefinitionParams):
     if not cite:
         return
 
-    (entry, library) = DATABASE.find_in_libraries(cite)
+    logger.error(f"DEFINITION, {cite}, {remove_trigger(cite, CONFIG)}")
+    (entry, library) = DATABASE.find_in_libraries(remove_trigger(cite, CONFIG))
+    logger.error(f"DEFINITION, {entry}, {library}")
     if entry and library and library.path is not None:
         from ripgrepy import Ripgrepy
 
-        rg = Ripgrepy(cite, str(library.path))
+        rg = Ripgrepy(remove_trigger(cite, CONFIG), str(library.path))
         result = rg.with_filename().json().run().as_dict
         for res in result:
             if res["type"] == "match":
@@ -311,7 +320,7 @@ def goto_implementation(ls: BibliLanguageServer, params: types.DefinitionParams)
     if not cite:
         return
 
-    (entry, library) = DATABASE.find_in_libraries(cite)
+    (entry, library) = DATABASE.find_in_libraries(remove_trigger(cite, CONFIG))
     if entry and library:
         # for library in DATABASE.libraries:
         entry = library.entries_dict.get(cite)
@@ -343,7 +352,7 @@ def hover(ls: BibliLanguageServer, params: types.HoverParams):
     if not cite:
         return None
 
-    (entry, library) = DATABASE.find_in_libraries(cite)
+    (entry, library) = DATABASE.find_in_libraries(remove_trigger(cite, CONFIG))
     if entry and library and library.path:
         hover_text = build_doc_string(entry, CONFIG.hover.doc_format, str(library.path))
 
@@ -367,7 +376,7 @@ def hover(ls: BibliLanguageServer, params: types.HoverParams):
     ),
 )
 def completion(
-    ls: BibliLanguageServer, _: types.CompletionParams
+    ls: BibliLanguageServer, params: types.CompletionParams
 ) -> Optional[types.CompletionList]:
     """textDocument/completion: Returns completion items."""
 
@@ -375,6 +384,8 @@ def completion(
     completion_items = []
 
     processed_keys = {}
+    document_uri = params.text_document.uri
+    document = ls.workspace.get_text_document(document_uri)
 
     for libraries in DATABASE.libraries.values():
         for lib in libraries:
@@ -391,6 +402,8 @@ def completion(
                     completion_items.append(
                         types.CompletionItem(
                             key,
+                            insert_text=k,
+                            commit_characters=[CONFIG.cite.postfix],
                             additional_text_edits=text_edits,
                             kind=types.CompletionItemKind.Field,
                             documentation=types.MarkupContent(

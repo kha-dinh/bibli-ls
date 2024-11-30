@@ -1,8 +1,9 @@
 """Tests for completion requests."""
 
 import pytest
-from hamcrest import assert_that, is_
+from hamcrest import assert_that, is_, is_in
 from lsprotocol.types import (
+    CompletionItem,
     CompletionList,
     CompletionParams,
     Position,
@@ -26,6 +27,16 @@ async def test_completion():
         )
         assert actual
         assert isinstance(actual, CompletionList)
+
+        # expected = CompletionList(
+        #     False,
+        #     [
+        #         CompletionItem("@test1"),
+        #         CompletionItem("@test2"),
+        #         CompletionItem("@test3"),
+        #         CompletionItem("@reference_test"),
+        #     ],
+        # )
 
         assert_that(len(actual.items), is_(4))
 

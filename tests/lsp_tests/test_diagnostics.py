@@ -36,17 +36,17 @@ async def test_diagnostic():
         expected = RelatedFullDocumentDiagnosticReport(
             [
                 Diagnostic(
-                    Range(Position(1, 2), Position(1, 10)),
+                    Range(Position(1, 1), Position(1, 10)),
                     message='Item "unknown1" does not exist in library',
                     severity=DiagnosticSeverity.Warning,
                 ),
                 Diagnostic(
-                    Range(Position(2, 12), Position(2, 20)),
+                    Range(Position(2, 11), Position(2, 20)),
                     message='Item "unknown2" does not exist in library',
                     severity=DiagnosticSeverity.Warning,
                 ),
                 Diagnostic(
-                    Range(Position(3, 12), Position(3, 20)),
+                    Range(Position(3, 11), Position(3, 20)),
                     message='Item "unknown3" does not exist in library',
                     severity=DiagnosticSeverity.Warning,
                 ),

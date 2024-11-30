@@ -22,13 +22,18 @@ DEFAULT_FOOTER_FORMAT = [
 DEFAULT_CITE_TRIGGER = "@"
 
 """Default prefix"""
-DEFAULT_CITE_PREFIX = rf"\[{DEFAULT_CITE_TRIGGER}"
+DEFAULT_CITE_PREFIX = r"\["
 
 """Default postfix"""
 DEFAULT_CITE_POSTFIX = r"\]"
 
-"""Default regex string (to be automatically updated prefix/postfix is set)"""
-DEFAULT_CITE_REGEX_STR = rf"{DEFAULT_CITE_PREFIX}([A-Za-z_0-9]+){DEFAULT_CITE_POSTFIX}"
+"""Default separator"""
+DEFAULT_CITE_SEPARATOR = r","
+
+"""Default cite regex string
+"""
+# DEFAULT_CITE_REGEX_STR = rf"{DEFAULT_CITE_PREFIX}({DEFAULT_CITE_TRIGGER}[A-Za-z_0-9]+(?:\s*{DEFAULT_CITE_SEPARATOR}\s*{DEFAULT_CITE_TRIGGER}[A-Za-z_0-9]+)*){DEFAULT_CITE_POSTFIX}"
+DEFAULT_CITE_REGEX_STR = rf"{DEFAULT_CITE_PREFIX}([\w\W]+?){DEFAULT_CITE_POSTFIX}"
 
 """Default word wrap"""
 DEFAULT_WRAP = 80
@@ -87,6 +92,11 @@ class CiteConfig:
 
     postfix: str = DEFAULT_CITE_POSTFIX
     r"""Prefix to begin the citation.
+    Brackets (`])}`) should be escaped (`\]\)\}`).
+    """
+
+    separator: str = DEFAULT_CITE_SEPARATOR
+    r"""separator between citations
     Brackets (`])}`) should be escaped (`\]\)\}`).
     """
 
@@ -192,5 +202,6 @@ class BibliTomlConfig:
             self.cite.prefix != DEFAULT_CITE_PREFIX
             or self.cite.postfix != DEFAULT_CITE_POSTFIX
         ):
-            self.cite.regex = rf"{self.cite.prefix}([A-Za-z_0-9]+){self.cite.postfix}"
+            # self.cite.regex = rf"{self.cite.prefix}([A-Za-z_0-9]+(?:\s*{DEFAULT_CITE_SEPARATOR}\s*[A-Za-z_0-9]+)*){self.cite.postfix}"
+            self.cite.regex = rf"{self.cite.prefix}([\w\W]+?){self.cite.postfix}"
         return valid

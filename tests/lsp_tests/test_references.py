@@ -34,19 +34,19 @@ async def test_references():
         expected = [
             Location(
                 as_uri(TEST_DATA / "reference_test_1.md"),
-                Range(Position(2, 10), Position(2, 25)),
+                Range(Position(2, 11), Position(2, 25)),
             ),
             Location(
                 as_uri(TEST_DATA / "reference_test_1.md"),
-                Range(Position(3, 10), Position(3, 25)),
+                Range(Position(3, 11), Position(3, 25)),
             ),
             Location(
                 as_uri(TEST_DATA / "reference_test_2.md"),
-                Range(Position(3, 10), Position(3, 25)),
+                Range(Position(3, 11), Position(3, 25)),
             ),
             Location(
                 as_uri(TEST_DATA / "reference_test_2.md"),
-                Range(Position(1, 0), Position(1, 15)),
+                Range(Position(1, 1), Position(1, 15)),
             ),
         ]
 

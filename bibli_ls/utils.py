@@ -5,9 +5,13 @@ from bibtexparser.model import Entry, Field
 from lsprotocol.types import MessageType, Position, ShowMessageParams
 from pygls.lsp.server import LanguageServer
 from pygls.workspace import TextDocument
+import logging
 from typing_extensions import assert_type
 
+
 from .bibli_config import BibliTomlConfig, DocFormatingConfig
+
+logger = logging.getLogger(__name__)
 
 
 def show_message(
@@ -21,6 +25,10 @@ def show_message(
     )
 
 
+def remove_trigger(cite: str, config: BibliTomlConfig):
+    return cite.replace(config.cite.trigger, "")
+
+
 def cite_at_position(
     doc: TextDocument, position: Position, config: BibliTomlConfig
 ) -> str | None:
@@ -28,12 +36,26 @@ def cite_at_position(
 
     # TODO: Check if encapsulated in "[]"
     for match in re.finditer(config.cite.regex, line):
-        (start, end) = match.span(1)
-        if (
-            start - len(config.cite.prefix) <= position.character
-            and end + len(config.cite.postfix) >= position.character
-        ):
-            return match.group(1)
+        (cite_start, cite_end) = match.span(1)
+        keys = match.group(1).split(config.cite.separator)
+        keys = [k.strip() for k in keys if k.strip()[0] == config.cite.trigger]
+        key_pos = [line.find(k, cite_start, cite_end) for k in keys]
+
+        logger.error("CITE_AT_POS")
+        for k, pos in zip(keys, key_pos):
+            logger.error(f"{k}, {pos}, {position.character}")
+            if position.character >= pos and position.character < pos + len(k):
+                logger.error(k)
+                return k
+            # loc = line.find(k, cite_start, cite_end)
+            # if loc
+
+        # (start, end) = match.span(1)
+        # if (
+        #     start - len(config.cite.prefix) <= position.character
+        #     and end + len(config.cite.postfix) >= position.character
+        # ):
+        #     return match.group(1)
 
     return None
 
