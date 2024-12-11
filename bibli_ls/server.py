@@ -15,7 +15,13 @@ from bibli_ls.backends.zotero_backend import ZoteroBackend
 from . import __version__
 from .bibli_config import BibliTomlConfig
 from .database import BibliBibDatabase
-from .utils import build_doc_string, cite_at_position, remove_trigger, show_message
+from .utils import (
+    build_doc_string,
+    cite_at_position,
+    get_cite_uri,
+    remove_trigger,
+    show_message,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -320,14 +326,12 @@ def goto_implementation(ls: BibliLanguageServer, params: types.DefinitionParams)
     if not cite:
         return
 
-    (entry, library) = DATABASE.find_in_libraries(remove_trigger(cite, CONFIG))
-    if entry and library:
-        # for library in DATABASE.libraries:
-        entry = library.entries_dict.get(cite)
-        if entry and entry.fields_dict.get("url"):
-            ls.window_show_document(
-                types.ShowDocumentParams(entry.fields_dict["url"].value, external=True)
-            )
+    uri = get_cite_uri(DATABASE, cite, CONFIG)
+    if uri:
+        ls.window_show_document(types.ShowDocumentParams(uri, external=True))
+        return types.Location(
+            params.text_document.uri, types.Range(params.position, params.position)
+        )
 
     return None
 

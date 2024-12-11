@@ -7,6 +7,9 @@ from pygls.lsp.server import LanguageServer
 from pygls.workspace import TextDocument
 import logging
 from typing_extensions import assert_type
+import requests
+
+from bibli_ls.database import BibliBibDatabase
 
 
 from .bibli_config import BibliTomlConfig, DocFormatingConfig
@@ -25,6 +28,46 @@ def show_message(
     )
 
 
+def get_item_attachments_bbt(cite: str):
+    url = "http://localhost:23119/better-bibtex/json-rpc"
+
+    headers = {"Content-Type": "application/json", "Accept": "application/json"}
+    payload = {"jsonrpc": "2.0", "method": "item.attachments", "params": [cite]}
+
+    attachments = []
+    response = requests.post(url, json=payload, headers=headers)
+    data = response.json()
+    for attachment in data["result"]:
+        attachments.append(attachment["open"])
+
+    return attachments
+
+
+def get_cite_uri(
+    db: BibliBibDatabase, cite: str, config: BibliTomlConfig
+) -> str | None:
+    (entry, _) = db.find_in_libraries(remove_trigger(cite, config))
+
+    if not entry:
+        return None
+
+    uri = None
+    match config.view.viewer:
+        case "browser":
+            if entry.fields_dict.get("url"):
+                uri = entry.fields_dict["url"].value
+        case "zotero":
+            uri = f"zotero://select/items/{cite}"
+
+        case "zotero_bbt":
+            # Hacky way to  use better-bibtex JSON RPC support to get the attachment
+            # uri. See more:
+            # - https://retorque.re/zotero-better-bibtex/exporting/json-rpc/index.html
+            # - https://github.com/retorquere/zotero-better-bibtex/issues/1347
+            uri = get_item_attachments_bbt(cite)[0]
+    return uri
+
+
 def remove_trigger(cite: str, config: BibliTomlConfig):
     return cite.replace(config.cite.trigger, "")
 
@@ -41,12 +84,12 @@ def cite_at_position(
         keys = [k.strip() for k in keys if k.strip()[0] == config.cite.trigger]
         key_pos = [line.find(k, cite_start, cite_end) for k in keys]
 
-        logger.error("CITE_AT_POS")
+        # logger.error("CITE_AT_POS")
         for k, pos in zip(keys, key_pos):
-            logger.error(f"{k}, {pos}, {position.character}")
+            # logger.error(f"{k}, {pos}, {position.character}")
             if position.character >= pos and position.character < pos + len(k):
-                logger.error(k)
-                return k
+                logger.error(k.strip())
+                return k.strip()
             # loc = line.find(k, cite_start, cite_end)
             # if loc
 
