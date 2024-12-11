@@ -43,6 +43,16 @@ DEFAULT_CHAR_LIMIT = 400
 
 
 @dataclass
+class ViewConfig:
+    """
+    Configs for viewing documents
+    """
+
+    viewer: str = "browser"
+    """`zotero`, `zotero_bbt` or `browser`"""
+
+
+@dataclass
 class DocFormatingConfig:
     """
     Configs for displaying documentation strings
@@ -152,6 +162,7 @@ EXPECTED_VALUES = {
     "backend_type": ["zotero_api", "bibfile"],
     "library_type": ["user", "group"],
     "doc_format.format": ["table", "list"],
+    "view.viewer": ["browser", "zotero", "zotero_bbt"],
 }
 
 
@@ -173,6 +184,9 @@ class BibliTomlConfig:
     cite: CiteConfig = field(default_factory=lambda: CiteConfig())
     """See `CiteConfig`"""
 
+    view: ViewConfig = field(default_factory=lambda: ViewConfig())
+    """See `ViewingConfig`"""
+
     def check_expected(self, field, value) -> bool:
         if value not in EXPECTED_VALUES[field]:
             logger.error(
@@ -192,6 +206,8 @@ class BibliTomlConfig:
                     pass
 
         valid |= self.check_expected("doc_format.format", self.hover.doc_format.format)
+
+        valid |= self.check_expected("view.viewer", self.view.viewer)
 
         valid |= self.check_expected(
             "doc_format.format", self.completion.doc_format.format

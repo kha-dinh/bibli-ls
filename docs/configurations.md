@@ -10,6 +10,8 @@
   * [DEFAULT\_CITE\_SEPARATOR](#bibli_config.DEFAULT_CITE_SEPARATOR)
   * [DEFAULT\_CITE\_REGEX\_STR](#bibli_config.DEFAULT_CITE_REGEX_STR)
   * [DEFAULT\_WRAP](#bibli_config.DEFAULT_WRAP)
+  * [ViewConfig](#bibli_config.ViewConfig)
+    * [viewer](#bibli_config.ViewConfig.viewer)
   * [DocFormatingConfig](#bibli_config.DocFormatingConfig)
     * [wrap](#bibli_config.DocFormatingConfig.wrap)
     * [character\_limit](#bibli_config.DocFormatingConfig.character_limit)
@@ -37,6 +39,7 @@
     * [hover](#bibli_config.BibliTomlConfig.hover)
     * [completion](#bibli_config.BibliTomlConfig.completion)
     * [cite](#bibli_config.BibliTomlConfig.cite)
+    * [view](#bibli_config.BibliTomlConfig.view)
 
 <a id="bibli_config"></a>
 
@@ -135,6 +138,27 @@ DEFAULT_WRAP = 80
 ```
 
 Default character limit
+
+<a id="bibli_config.ViewConfig"></a>
+
+## ViewConfig Objects
+
+```python
+@dataclass
+class ViewConfig()
+```
+
+Configs for viewing documents
+
+<a id="bibli_config.ViewConfig.viewer"></a>
+
+#### viewer: `str`
+
+```python
+viewer = "browser"
+```
+
+`zotero`, `zotero_bbt` or `browser`
 
 <a id="bibli_config.DocFormatingConfig"></a>
 
@@ -414,4 +438,14 @@ cite = field(default_factory=lambda: CiteConfig())
 ```
 
 See `CiteConfig`
+
+<a id="bibli_config.BibliTomlConfig.view"></a>
+
+#### view: `ViewConfig`
+
+```python
+view = field(default_factory=lambda: ViewConfig())
+```
+
+See `ViewingConfig`
 
