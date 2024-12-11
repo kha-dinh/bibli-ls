@@ -32,7 +32,11 @@ footer_format = [
 
 [cite]
 trigger = "@"
-prefix = "\\[@"
+prefix = "\\["
 postfix = "\\]"
-regex = "\\[@([A-Za-z_0-9]+)\\]"
+separator = ","
+regex = "\\[([\\w\\W]+?)\\]"
+
+[view]
+viewer = "browser"
 
