@@ -28,6 +28,7 @@
           };
 
           propagatedBuildInputs = with pkgs.python3Packages; [
+            pylatexenc
           ];
 
           doCheck = false;
@@ -132,6 +133,25 @@
           doCheck = false;
         };
 
+        lsprotocol = pkgs.python3Packages.buildPythonPackage {
+          pname = "lsprotocol";
+          version = "2024.0.0b1";
+          format = "wheel";
+
+          src = pkgs.fetchurl {
+            url = "https://files.pythonhosted.org/packages/4d/1b/526af91cd43eba22ac7d9dbdec729dd9d91c2ad335085a61dd42307a7b35/lsprotocol-2024.0.0b1-py3-none-any.whl";
+            sha256 = "sha256-k3hQUKwVWuK+FrHr+9dMIU/rPT73exA5nOlB5czvbr0=";
+          };
+
+          propagatedBuildInputs = with pkgs.python3Packages; [
+            attrs
+            cattrs
+            jsonschema
+          ];
+
+          doCheck = false;
+        };
+
         pygls = pkgs.python3Packages.buildPythonPackage {
           pname = "pygls";
           version = "2.0.0a2";
@@ -143,6 +163,7 @@
           };
 
           propagatedBuildInputs = with pkgs.python3Packages; [
+            lsprotocol
           ];
 
           doCheck = false;
@@ -159,6 +180,7 @@
           };
 
           propagatedBuildInputs = with pkgs.python3Packages; [
+            markdown-it-py
           ];
 
           doCheck = false;
