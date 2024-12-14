@@ -35,38 +35,38 @@
             doCheck = false;
           };
 
+        lsprotocol = buildWheel {
+          pname = "lsprotocol";
+          version = "2024.0.0b1";
+          url = "https://files.pythonhosted.org/packages/4d/1b/526af91cd43eba22ac7d9dbdec729dd9d91c2ad335085a61dd42307a7b35/lsprotocol-2024.0.0b1-py3-none-any.whl";
+          sha256 = "sha256-k3hQUKwVWuK+FrHr+9dMIU/rPT73exA5nOlB5czvbr0=";
+          propagatedBuildInputs = with pkgs.python3Packages; [
+            attrs
+            cattrs
+            jsonschema
+          ];
+        };
+
+        bibtexparser2 = buildWheel {
+          pname = "bibtexparser";
+          version = "2.0.0b4";
+          url = "https://files.pythonhosted.org/packages/3f/64/6eda019a3b0d3aa6834865c126b66cfd442f56829befdca571c40662f8a6/bibtexparser-2.0.0b4-py3-none-any.whl";
+          sha256 = "sha256-FOWMfvltp4z2dce7LPFbA2E9Rj737c09ruIPU7SJzoM=";
+          propagatedBuildInputs = with pkgs.python3Packages; [ pylatexenc ];
+        };
+
         # Custom Python packages
         customPythonPackages = with pkgs.python3Packages; {
-          bibtexparser2 = buildWheel {
-            pname = "bibtexparser";
-            version = "2.0.0b4";
-            url = "https://files.pythonhosted.org/packages/3f/64/6eda019a3b0d3aa6834865c126b66cfd442f56829befdca571c40662f8a6/bibtexparser-2.0.0b4-py3-none-any.whl";
-            sha256 = "sha256-FOWMfvltp4z2dce7LPFbA2E9Rj737c09ruIPU7SJzoM=";
-            propagatedBuildInputs = [ pylatexenc ];
-          };
-
           pyzotero = buildWheel {
             pname = "pyzotero";
             version = "1.5.25";
             url = "https://files.pythonhosted.org/packages/cb/3c/717f90930fbba6ec433a8b6eb9c8854089b7cd54118fb3dd5822d53bdfc7/pyzotero-1.5.25-py3-none-any.whl";
             sha256 = "sha256-ZSkTDLfH53OWPZLbfnoYtpipesgVZ2YyC1Xr1MfpTtU=";
             propagatedBuildInputs = [
-              # bibtexparser2
+              bibtexparser2
               feedparser
               pytz
               requests
-            ];
-          };
-
-          lsprotocol = buildWheel {
-            pname = "lsprotocol";
-            version = "2024.0.0b1";
-            url = "https://files.pythonhosted.org/packages/4d/1b/526af91cd43eba22ac7d9dbdec729dd9d91c2ad335085a61dd42307a7b35/lsprotocol-2024.0.0b1-py3-none-any.whl";
-            sha256 = "sha256-k3hQUKwVWuK+FrHr+9dMIU/rPT73exA5nOlB5czvbr0=";
-            propagatedBuildInputs = [
-              attrs
-              cattrs
-              jsonschema
             ];
           };
 
