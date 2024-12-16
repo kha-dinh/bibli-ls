@@ -92,7 +92,7 @@
           pythonSet = pythonSets.${system};
         in
         {
-          default = pythonSet.mkVirtualEnv "bibli-ls-env" workspace.deps.default;
+          default = pythonSet.bibli-ls;
         }
       );
 
