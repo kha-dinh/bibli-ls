@@ -58,15 +58,19 @@
           # Those packages are using setuptools, so we need to pass setuptools
           # as a build input
           pyprojectOverrides = final: prev: {
-            # Fix sgmllib3k build
             sgmllib3k = prev.sgmllib3k.overrideAttrs (old: {
               nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [
                 final.setuptools
               ];
             });
 
-            # Fix ripgrepy build
             ripgrepy = prev.ripgrepy.overrideAttrs (old: {
+              nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [
+                final.setuptools
+              ];
+            });
+
+            docstring-parser = prev.docstring-parser.overrideAttrs (old: {
               nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [
                 final.setuptools
               ];
