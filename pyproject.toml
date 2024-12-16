@@ -8,7 +8,7 @@ version = "0.1.6.2"
 authors = [{ name = "Kha Dinh", email = "dalo2903@gmail.com" }]
 description = "A simple LSP server for your bibliographies"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
   "bibtexparser==2.0.0b4",
   "watchdog==6.0.0",
@@ -29,6 +29,9 @@ classifiers = [
 [project.optional-dependencies]
 test = ["pytest==8.3.3", "pytest-asyncio", "pyhamcrest==2.1.0"]
 doc = ["pydoc-markdown==4.8.2"]
+
+[tool.uv]
+prerelease = "allow"
 
 [project.urls]
 Homepage = "https://github.com/kha-dinh/bibli-ls"

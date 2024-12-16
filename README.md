@@ -152,30 +152,6 @@ Add bibli-ls to your home-manager configuration:
 }
 ```
 
-### Updating Dependencies
-
-The flake.nix file contains Python package dependencies with their specific versions and hashes. To update a dependency:
-
-1. Find the new wheel URL from PyPI
-2. Update the version and URL in flake.nix
-3. Update the SHA256 hash. You can get the new hash by intentionally using a wrong hash and Nix will tell you the correct one:
-
-```bash
-nix build # Will fail and show the correct hash
-```
-
-Example of updating a dependency in flake.nix:
-
-```nix
-pygls = buildWheel {
-  pname = "pygls";
-  version = "2.0.0a2"; # Update version
-  url = "https://files.pythonhosted.org/packages/..."; # Update URL
-  sha256 = "sha256-..."; # Update hash
-  propagatedBuildInputs = [ lsprotocol ];
-};
-```
-
 ## Building from source
 
 From the root directory:
