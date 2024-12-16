@@ -1,0 +1,31 @@
+name: "Build using Flakes"
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Setup Nix cache
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Generate uv.lock if not exists
+        run: |
+          if [ ! -f uv.lock ]; then
+            nix shell nixpkgs#uv -c uv pip compile pyproject.toml -o uv.lock
+          fi
+
+      - name: Build package
+        run: nix build -L
+
+      - name: Test development shell
+        run: nix develop -c echo "Development shell works!"
