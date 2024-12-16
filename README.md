@@ -104,6 +104,70 @@ Currently, Bibli supports `bibfile` and `zotero_api` backends.
 
   - [More on setting up citation keys for online libraries](/docs/custom-cite-keys.md)
 
+
+## Using Nix
+
+### Installation via Flakes
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    bibli-ls.url = "github:kha-dinh/bibli-ls";
+  };
+}
+```
+
+Then you can use it in your configuration:
+
+```nix
+{
+  environment.systemPackages = [ inputs.bibli-ls.packages.${system}.default ];
+}
+```
+
+### Home Manager Configuration
+
+Add bibli-ls to your home-manager configuration:
+
+```nix
+{ config, pkgs, inputs, ... }:
+{
+  home.packages = [ inputs.bibli-ls.packages.${system}.default ];
+
+  home.file."Sync/Notes/zk/permanent/.bibli.toml".text = ''
+    [backends]
+    [backends.library]
+    backend_type = "bibfile"
+    bibfiles = ["${config.home.homeDirectory}/Sync/Bibliography/library.bib"]
+  '';
+}
+```
+
+### Updating Dependencies
+
+The flake.nix file contains Python package dependencies with their specific versions and hashes. To update a dependency:
+
+1. Find the new wheel URL from PyPI
+2. Update the version and URL in flake.nix
+3. Update the SHA256 hash. You can get the new hash by intentionally using a wrong hash and Nix will tell you the correct one:
+
+```bash
+nix build # Will fail and show the correct hash
+```
+
+Example of updating a dependency in flake.nix:
+
+```nix
+pygls = buildWheel {
+  pname = "pygls";
+  version = "2.0.0a2"; # Update version
+  url = "https://files.pythonhosted.org/packages/..."; # Update URL
+  sha256 = "sha256-..."; # Update hash
+  propagatedBuildInputs = [ lsprotocol ];
+};
+```
+
 ## Building from source
 
 From the root directory:
@@ -112,6 +176,6 @@ From the root directory:
 pip install . # --force-reinstall if needed
 # Or for Arch
 pipx install . # --force-reinstall if needed
-
-
+# And Nix
+nix build # The built package will be available in `./result`.
 ```
