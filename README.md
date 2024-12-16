@@ -23,7 +23,7 @@ A [Language Server](https://microsoft.github.io/language-server-protocol/) that 
 | [textDocument/hover](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_hover)                   | Show metadata from `.bib` files based on configurations.                                                                 |
 | [textDocument/completion](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_completion)         | Triggered by the `cite_prefix` configuration. Show completion of citation ID for bibtex entries and their documentation. |
 | [textDocument/diagnoistic](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_completion)        | Find citations without a proper entry in the bibfile.                                                                    |
-| [textDocument/implementation](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_implementation) | (Non-standard) Open `url` field of the citation in an external browser (TODO: make configurable).                        |
+| [textDocument/implementation](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_implementation) | (Non-standard) Open the bibtex url/attachment.                                                                           |
 
 ## Configuration
 
@@ -31,8 +31,8 @@ Create a configuration file `.bibli.toml` at the root of your note directory. He
 
 ```toml
 
-[backends]
-# Backends can be of any names
+[backends] # Specifying backends for bibtex libraries
+# Backends can be of any names, e.g.,
 [backends.mylib]
 backend_type = "bibfile" # Available backends: "bibfile", "zotero_api"
 bibfiles = ["references.bib"]
@@ -43,31 +43,39 @@ library_id = "5123456" # Your library ID
 library_type = "user" # "user"" or "group"
 api_key = "XXXXXXXXXXXXXXXXXXXXXXXX"
 
-[cite]
-prefix = "@" # e.g., "@john2024paper"
+[cite] # How to cite bibtex entires, e.g., "[@john2024paper]"
+trigger = "@"
 
-[hover.doc_format]
+[view] # How to display your document externally
+viewer = "browser" # Available viewer: `zotero`, `zotero_bbt` and `browser`
+
+[hover.doc_format] # How to display hover documentation
 show_fields = ["abstract", "year", "booktitle", "url"]
 format = "table" # Available formats: "table"  and "list" (markdown)
 
-[completion.doc_format]
+[completion.doc_format] # How to display hover documentation
 show_fields = ["abstract", "year", "booktitle"]
 format = "list"
 
 ```
 
-## Installation
+### Backends
 
-Install the latest release of `bibli-ls` through `pip`:
+Currently, Bibli supports `bibfile` and `zotero_api` backends.
 
-```bash
-pip install bibli-ls
+- `bibfile` backend loads the library from a local bibtex file.
+- `zotero_api` backend connects directly to your Zotero web library, removing the need for maintaining separated bibfiles. It cache the results in a bibfile named `.{backend name}_{library type}_{library id}.bib`. Run the command LSP `library.reload_all` to refetch the online content.
+  - [More on setting up citation keys for online libraries](/docs/custom-cite-keys.md)
 
-# Alternatively, on Arch:
-pipx install bibli-ls
-```
+### Viewers
 
-### Neovim
+We support openning the `url` in browser, or openning PDF attachment (for zotero-based backends). TODO: support custom PDF viewer. The current viewers are:
+
+- `browser`: opens the `url` field in the bibtx entry in your default browser
+- `zotero_bbt` shows the document in Zotero's PDF viewer (require [better bibtex](https://retorque.re/zotero-better-bibtex/) to be installed and Zotero to be running)
+- `zotero` shows the entry in Zotero.
+
+### Neovim configuration
 
 Automatic configuration through [lspconfig]() has yet to be supported. To enable bibli-ls, put the following code in your Neovim config.
 
@@ -94,16 +102,16 @@ end
 lspconfig.bibli_ls.setup({})
 ```
 
-## Backends
+## Installation
 
-Currently, Bibli supports `bibfile` and `zotero_api` backends.
+Install the latest release of `bibli-ls` through `pip`:
 
-- `bibfile` backend loads the library from a local bibtex file.
+```bash
+pip install bibli-ls
 
-- `zotero_api` backend connects directly to your Zotero web library, removing the need for maintaining separated bibfiles. It cache the results in a bibfile named `.{backend name}_{library type}_{library id}.bib`. Run the command LSP `library.reload_all` to refetch the online content.
-
-  - [More on setting up citation keys for online libraries](/docs/custom-cite-keys.md)
-
+# Alternatively, on Arch:
+pipx install bibli-ls
+```
 
 ## Using Nix
 
