@@ -102,6 +102,20 @@ end
 lspconfig.bibli_ls.setup({})
 ```
 
+### Helix configuration
+
+To enable bibli-ls, put the following code in your Helix config (`.config/helix/languages.toml`):
+
+```toml
+  [language-server.bibli-ls]
+  command = "bibli_ls"
+
+  [[language]]
+  name = "markdown"
+  language-servers = ["bibli-ls"]  # Add other md lsps like zk, marksman, ...
+  roots = [".bibli.toml"]
+```
+
 ## Installation
 
 Install the latest release of `bibli-ls` through `pip`:
@@ -117,12 +131,47 @@ pipx install bibli-ls
 
 ### Installation via Flakes
 
+In your `flake.nix`:
+
 ```nix
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    bibli-ls.url = "github:kha-dinh/bibli-ls";
+
+    bibli-ls = {
+      url = "github:kha-dinh/bibli-ls";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
+
+  # ...
+  outputs =
+    {
+      self,
+      bibli-ls,
+      nixpkgs,
+      ...
+    }@inputs:
+    let
+      pkgs-flake = {
+        bibli-ls = bibli-ls.packages.${system}.default;
+      };
+
+      customOverlays = [
+        (final: prev: {
+          flake = pkgs-flake;
+        })
+      ];
+    in
+      nixosConfigurations = {
+        yourMachine = nixpkgs.lib.nixosSystem {
+          inherit system;
+          modules = [
+            { nixpkgs.overlays = customOverlays; }
+            # ...
+          ];
+        };
+      };
 }
 ```
 
@@ -130,7 +179,7 @@ Then you can use it in your configuration:
 
 ```nix
 {
-  environment.systemPackages = [ inputs.bibli-ls.packages.${system}.default ];
+  environment.systemPackages = [ pkgs.flake.bibli-ls ];
 }
 ```
 
@@ -139,9 +188,9 @@ Then you can use it in your configuration:
 Add bibli-ls to your home-manager configuration:
 
 ```nix
-{ config, pkgs, inputs, ... }:
+{ config, pkgs, ... }:
 {
-  home.packages = [ inputs.bibli-ls.packages.${system}.default ];
+  home.packages = [ pkgs.flake.bibli-ls ];
 
   home.file."Sync/Notes/zk/permanent/.bibli.toml".text = ''
     [backends]
@@ -161,5 +210,5 @@ pip install . # --force-reinstall if needed
 # Or for Arch
 pipx install . # --force-reinstall if needed
 # And Nix
-nix build # The built package will be available in `./result`.
+nix build # The built package will be available in `./result`. You can also use `nix run`
 ```
