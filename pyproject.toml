@@ -30,6 +30,9 @@ classifiers = [
 test = ["pytest==8.3.3", "pytest-asyncio", "pyhamcrest==2.1.0"]
 doc = ["pydoc-markdown==4.8.2"]
 
+[tool.uv]
+prerelease = "allow"
+
 [project.urls]
 Homepage = "https://github.com/kha-dinh/bibli-ls"
 Issues = "https://github.com/kha-dinh/bibli-ls/issues"
