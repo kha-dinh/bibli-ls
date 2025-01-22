@@ -43,6 +43,7 @@ bibli_ls = "bibli_ls.cli:cli"
 [tool.pytest.ini_options]
 addopts = "-v"
 testpaths = ["tests"]
+pythonpath = ["."]
 
 [[tool.pydoc-markdown.loaders]]
 type = "python"
