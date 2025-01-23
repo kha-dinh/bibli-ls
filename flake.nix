@@ -25,6 +25,7 @@
 
   outputs =
     {
+      self,
       nixpkgs,
       uv2nix,
       pyproject-nix,
@@ -92,12 +93,24 @@
       packages = forAllSystems (
         system:
         let
+          pkgs = nixpkgs.legacyPackages.${system};
           pythonSet = pythonSets.${system};
+          inherit (pkgs.callPackages pyproject-nix.build.util { }) mkApplication;
         in
         {
-          default = pythonSet.bibli-ls;
+          default = mkApplication {
+            venv = pythonSet.mkVirtualEnv "bibli-ls-env" workspace.deps.default;
+            package = pythonSet.bibli-ls;
+          };
         }
       );
+
+      apps = forAllSystems (system: {
+        default = {
+          type = "app";
+          program = "${self.packages.${system}.default}/bin/bibli_ls";
+        };
+      });
 
       devShells = forAllSystems (
         system:
@@ -120,11 +133,21 @@
               venv
               pkgs.uv
             ];
+
+            env =
+              {
+                UV_NO_SYNC = "1";
+                UV_PYTHON = "${venv}/bin/python";
+                UV_PYTHON_DOWNLOADS = "never";
+              }
+              // lib.optionalAttrs pkgs.stdenv.isLinux {
+                # Add library path for Linux systems
+                LD_LIBRARY_PATH = lib.makeLibraryPath pkgs.pythonManylinuxPackages.manylinux1;
+              };
+
             shellHook = ''
               unset PYTHONPATH
               export REPO_ROOT=$(git rev-parse --show-toplevel)
-              export UV_NO_SYNC=1
-              export UV_PYTHON_DOWNLOADS=never
             '';
           };
         }
