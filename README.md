@@ -102,20 +102,6 @@ end
 lspconfig.bibli_ls.setup({})
 ```
 
-### Helix configuration
-
-To enable bibli-ls, put the following code in your Helix config (`.config/helix/languages.toml`):
-
-```toml
-  [language-server.bibli-ls]
-  command = "bibli_ls"
-
-  [[language]]
-  name = "markdown"
-  language-servers = ["bibli-ls"]  # Add other md lsps like zk, marksman, ...
-  roots = [".bibli.toml"]
-```
-
 ## Installation
 
 Install the latest release of `bibli-ls` through `pip`:
