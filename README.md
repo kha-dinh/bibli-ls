@@ -12,7 +12,7 @@ A [Language Server](https://microsoft.github.io/language-server-protocol/) that 
 
 [![image-version](https://img.shields.io/pypi/v/bibli-ls.svg)](https://python.org/pypi/bibli-ls)
 [![image-license](https://img.shields.io/pypi/l/bibli-ls.svg)](https://python.org/pypi/bibli-ls)
-[![image-python-versions](https://img.shields.io/badge/python->=3.8-blue)](https://python.org/pypi/bibli-ls)
+[![image-python-versions](https://img.shields.io/badge/python-%3E=3.8-blue)](https://python.org/pypi/bibli-ls)
 
 ## Supported LSP capabilities
 
@@ -77,7 +77,7 @@ We support openning the `url` in browser, or openning PDF attachment (for zotero
 
 ### Neovim configuration
 
-Automatic configuration through [lspconfig]() has yet to be supported. To enable bibli-ls, put the following code in your Neovim config.
+Automatic configuration through [lspconfig](<>) has yet to be supported. To enable bibli-ls, put the following code in your Neovim config.
 
 ```lua
 local lspconfig = require("lspconfig")
@@ -100,6 +100,21 @@ if not configs.bibli_ls then
 end
 
 lspconfig.bibli_ls.setup({})
+```
+
+### Helix configuration
+
+To enable bibli-ls, put the following code in your Helix config (`.config/helix/languages.toml`):
+
+```toml
+  [language-server.bibli-ls]
+  command = "bibli_ls"
+  required-root-patterns = [".bibli.toml"]
+
+  [[language]]
+  name = "markdown"
+  language-servers = ["bibli-ls"]  # Add other md lsps like zk, marksman, ...
+  roots = [".bibli.toml"]
 ```
 
 ## Installation
