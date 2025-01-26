@@ -1,14 +1,9 @@
 # Table of Contents
 
 * [bibli\_config](#bibli_config)
-  * [logger](#bibli_config.logger)
   * [DEFAULT\_HEADER\_FORMAT](#bibli_config.DEFAULT_HEADER_FORMAT)
   * [DEFAULT\_FOOTER\_FORMAT](#bibli_config.DEFAULT_FOOTER_FORMAT)
-  * [DEFAULT\_CITE\_TRIGGER](#bibli_config.DEFAULT_CITE_TRIGGER)
-  * [DEFAULT\_CITE\_PREFIX](#bibli_config.DEFAULT_CITE_PREFIX)
-  * [DEFAULT\_CITE\_POSTFIX](#bibli_config.DEFAULT_CITE_POSTFIX)
-  * [DEFAULT\_CITE\_SEPARATOR](#bibli_config.DEFAULT_CITE_SEPARATOR)
-  * [DEFAULT\_CITE\_REGEX\_STR](#bibli_config.DEFAULT_CITE_REGEX_STR)
+  * [DEFAULT\_CITE\_PRESET](#bibli_config.DEFAULT_CITE_PRESET)
   * [DEFAULT\_WRAP](#bibli_config.DEFAULT_WRAP)
   * [ViewConfig](#bibli_config.ViewConfig)
     * [viewer](#bibli_config.ViewConfig.viewer)
@@ -20,7 +15,9 @@
     * [header\_format](#bibli_config.DocFormatingConfig.header_format)
     * [footer\_format](#bibli_config.DocFormatingConfig.footer_format)
   * [CiteConfig](#bibli_config.CiteConfig)
+    * [preset](#bibli_config.CiteConfig.preset)
     * [trigger](#bibli_config.CiteConfig.trigger)
+    * [post\_trigger](#bibli_config.CiteConfig.post_trigger)
     * [prefix](#bibli_config.CiteConfig.prefix)
     * [postfix](#bibli_config.CiteConfig.postfix)
     * [separator](#bibli_config.CiteConfig.separator)
@@ -44,16 +41,6 @@
 <a id="bibli_config"></a>
 
 # bibli\_config
-
-<a id="bibli_config.logger"></a>
-
-#### logger
-
-```python
-logger = logging.getLogger(__name__)
-```
-
-Default header
 
 <a id="bibli_config.DEFAULT_HEADER_FORMAT"></a>
 
@@ -79,52 +66,12 @@ DEFAULT_FOOTER_FORMAT = [
 
 Default cite trigger
 
-<a id="bibli_config.DEFAULT_CITE_TRIGGER"></a>
+<a id="bibli_config.DEFAULT_CITE_PRESET"></a>
 
-#### DEFAULT\_CITE\_TRIGGER
-
-```python
-DEFAULT_CITE_TRIGGER = "@"
-```
-
-Default prefix
-
-<a id="bibli_config.DEFAULT_CITE_PREFIX"></a>
-
-#### DEFAULT\_CITE\_PREFIX
+#### DEFAULT\_CITE\_PRESET
 
 ```python
-DEFAULT_CITE_PREFIX = r"\["
-```
-
-Default postfix
-
-<a id="bibli_config.DEFAULT_CITE_POSTFIX"></a>
-
-#### DEFAULT\_CITE\_POSTFIX
-
-```python
-DEFAULT_CITE_POSTFIX = r"\]"
-```
-
-Default separator
-
-<a id="bibli_config.DEFAULT_CITE_SEPARATOR"></a>
-
-#### DEFAULT\_CITE\_SEPARATOR
-
-```python
-DEFAULT_CITE_SEPARATOR = r","
-```
-
-Default cite regex string
-
-<a id="bibli_config.DEFAULT_CITE_REGEX_STR"></a>
-
-#### DEFAULT\_CITE\_REGEX\_STR
-
-```python
-DEFAULT_CITE_REGEX_STR = rf"{DEFAULT_CITE_PREFIX}([\w\W]+?){DEFAULT_CITE_POSTFIX}"
+DEFAULT_CITE_PRESET = "pandoc"
 ```
 
 Default word wrap
@@ -237,27 +184,47 @@ List of Python-style format strings for the footer.
 
 ```python
 @dataclass
-class CiteConfig()
+class CiteConfig(Unionable)
 ```
 
 Configs for citation.
+
+<a id="bibli_config.CiteConfig.preset"></a>
+
+#### preset: `str`
+
+```python
+preset = "pandoc"
+```
+
+Trigger completion and also marks the beginning of citation key.
 
 <a id="bibli_config.CiteConfig.trigger"></a>
 
 #### trigger: `str`
 
 ```python
-trigger = DEFAULT_CITE_TRIGGER
+trigger = "@"
 ```
 
-Trigger completion.
+Trigger completion and also marks the beginning of citation key.
+
+<a id="bibli_config.CiteConfig.post_trigger"></a>
+
+#### post\_trigger: `str`
+
+```python
+post_trigger = ","
+```
+
+Trigger completion and also marks the beginning of citation key.
 
 <a id="bibli_config.CiteConfig.prefix"></a>
 
 #### prefix: `str`
 
 ```python
-prefix = DEFAULT_CITE_PREFIX
+prefix = "["
 ```
 
 Prefix to begin the citation (must be updated if trigger is updated).
@@ -268,7 +235,7 @@ Brackets (`([{`) should be escaped (`\(\[\{`).
 #### postfix: `str`
 
 ```python
-postfix = DEFAULT_CITE_POSTFIX
+postfix = "]"
 ```
 
 Prefix to begin the citation.
@@ -279,7 +246,7 @@ Brackets (`])}`) should be escaped (`\]\)\}`).
 #### separator: `str`
 
 ```python
-separator = DEFAULT_CITE_SEPARATOR
+separator = ";"
 ```
 
 separator between citations
@@ -290,10 +257,12 @@ Brackets (`])}`) should be escaped (`\]\)\}`).
 #### regex: `str`
 
 ```python
-regex = DEFAULT_CITE_REGEX_STR
+regex = ""
 ```
 
-Regex string to find the citation.
+Regex string to find the *block* of citation (`[@cite1; @cite2]`).
+This is to be built automatically based on prefix and postfix.
+Configuring this is NOT supported yet.
 
 <a id="bibli_config.HoverConfig"></a>
 
@@ -434,7 +403,7 @@ See `CompletionConfig`
 #### cite: `CiteConfig`
 
 ```python
-cite = field(default_factory=lambda: CiteConfig())
+cite = field(default_factory=lambda: CITE_PRESETS[DEFAULT_CITE_PRESET])
 ```
 
 See `CiteConfig`

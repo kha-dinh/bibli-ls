@@ -31,10 +31,12 @@ footer_format = [
 ]
 
 [cite]
+preset = "pandoc"
 trigger = "@"
-prefix = "\\["
-postfix = "\\]"
-separator = ","
+post_trigger = ","
+prefix = "["
+postfix = "]"
+separator = ";"
 regex = "\\[([\\w\\W]+?)\\]"
 
 [view]
