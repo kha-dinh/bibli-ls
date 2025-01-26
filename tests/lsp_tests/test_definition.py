@@ -32,12 +32,20 @@ async def test_definition():
 
         actual = await client.text_document_definition_async(
             DefinitionParams(
-                TextDocumentIdentifier(uri), Position(line=2, character=12)
+                TextDocumentIdentifier(uri), Position(line=2, character=20)
             )
         )
         expected = [
             Location(bib2_uri, Range(start=Position(0, 9), end=Position(0, 13)))
         ]
+        assert_that(actual, is_(expected))
+
+        actual = await client.text_document_definition_async(
+            DefinitionParams(
+                TextDocumentIdentifier(uri), Position(line=2, character=37)
+            )
+        )
+        expected = [Location(bib_uri, Range(start=Position(0, 9), end=Position(0, 13)))]
         assert_that(actual, is_(expected))
 
         actual = await client.text_document_definition_async(
@@ -49,3 +57,9 @@ async def test_definition():
             Location(bib_uri, Range(start=Position(12, 9), end=Position(12, 13)))
         ]
         assert_that(actual, is_(expected))
+
+        # actual = await client.text_document_definition_async(
+        #     DefinitionParams(TextDocumentIdentifier(uri), Position(line=5, character=1))
+        # )
+        # expected = [Location(bib_uri, Range(start=Position(0, 9), end=Position(0, 13)))]
+        # assert_that(actual, is_(expected))
