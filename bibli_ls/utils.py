@@ -76,8 +76,8 @@ def cite_at_position(
     doc: TextDocument, position: Position, config: BibliTomlConfig
 ) -> str | None:
     line = doc.lines[position.line]
+    assert config.cite.regex
 
-    # TODO: Check if encapsulated in "[]"
     for match in re.finditer(config.cite.regex, line):
         (cite_start, cite_end) = match.span(1)
         keys = match.group(1).split(config.cite.separator)

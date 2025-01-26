@@ -71,7 +71,7 @@ class ZoteroBackend(BibliBackend):
 
         for i in range(0, count, limit):
             items = self._zot.items(start=i, limit=limit, content="bibtex")
-            logger.error(items)
+            logger.debug(items)
             loaded += len(items)
             items_str = "\n".join(items)
             bibtexparser.parse_string(items_str, library=self.library)

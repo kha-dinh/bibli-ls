@@ -273,6 +273,7 @@ def find_references(ls: BibliLanguageServer, params: types.ReferenceParams):
                 )
             )
 
+    # logger.debug(f"RESULTS: {references}")
     return references
 
 
@@ -286,11 +287,9 @@ def goto_definition(ls: BibliLanguageServer, params: types.DefinitionParams):
 
     cite = cite_at_position(document, params.position, CONFIG)
     if not cite:
-        return
+        return []
 
-    logger.error(f"DEFINITION, {cite}, {remove_trigger(cite, CONFIG)}")
     (entry, library) = DATABASE.find_in_libraries(remove_trigger(cite, CONFIG))
-    logger.error(f"DEFINITION, {entry}, {library}")
     if entry and library and library.path is not None:
         from ripgrepy import Ripgrepy
 
@@ -313,7 +312,7 @@ def goto_definition(ls: BibliLanguageServer, params: types.DefinitionParams):
                         ),
                     )
                 )
-
+    # logger.debug(f"Founr definitions: {definitions}")
     return definitions
 
 
