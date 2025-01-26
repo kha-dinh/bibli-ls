@@ -27,7 +27,6 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest==8.3.3", "pytest-asyncio", "pyhamcrest==2.1.0"]
 doc = ["pydoc-markdown==4.8.2"]
 
 [tool.uv]
@@ -63,3 +62,6 @@ type = "markdown"
 data_code_block = true
 render_typehint_in_data_header = true
 render_toc = true
+
+[dependency-groups]
+dev = ["pytest>=8.3.3", "pytest-asyncio", "pyhamcrest==2.1.0"]
