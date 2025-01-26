@@ -1,7 +1,15 @@
 import logging
 from dataclasses import dataclass, field
 
+from attr import asdict
+
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class Unionable:
+    def __or__(self, other):
+        return self.__class__(**asdict(self) | asdict(other))
 
 
 """Default header"""
@@ -19,21 +27,7 @@ DEFAULT_FOOTER_FORMAT = [
 
 
 """Default cite trigger"""
-DEFAULT_CITE_TRIGGER = "@"
-
-"""Default prefix"""
-DEFAULT_CITE_PREFIX = r"\["
-
-"""Default postfix"""
-DEFAULT_CITE_POSTFIX = r"\]"
-
-"""Default separator"""
-DEFAULT_CITE_SEPARATOR = r","
-
-"""Default cite regex string
-"""
-# DEFAULT_CITE_REGEX_STR = rf"{DEFAULT_CITE_PREFIX}({DEFAULT_CITE_TRIGGER}[A-Za-z_0-9]+(?:\s*{DEFAULT_CITE_SEPARATOR}\s*{DEFAULT_CITE_TRIGGER}[A-Za-z_0-9]+)*){DEFAULT_CITE_POSTFIX}"
-DEFAULT_CITE_REGEX_STR = rf"{DEFAULT_CITE_PREFIX}([\w\W]+?){DEFAULT_CITE_POSTFIX}"
+DEFAULT_CITE_PRESET = "pandoc"
 
 """Default word wrap"""
 DEFAULT_WRAP = 80
@@ -86,32 +80,40 @@ class DocFormatingConfig:
 
 
 @dataclass
-class CiteConfig:
+class CiteConfig(Unionable):
     """
     Configs for citation.
     """
 
-    trigger: str = DEFAULT_CITE_TRIGGER
-    """Trigger completion."""
+    preset: str = "pandoc"
+    """Trigger completion and also marks the beginning of citation key."""
 
-    prefix: str = DEFAULT_CITE_PREFIX
+    trigger: str = "@"
+    """Trigger completion and also marks the beginning of citation key."""
+
+    post_trigger: str = ","
+    """Trigger completion and also marks the beginning of citation key."""
+
+    prefix: str = "["
     r"""
     Prefix to begin the citation (must be updated if trigger is updated). 
     Brackets (`([{`) should be escaped (`\(\[\{`).
     """
 
-    postfix: str = DEFAULT_CITE_POSTFIX
+    postfix: str = "]"
     r"""Prefix to begin the citation.
     Brackets (`])}`) should be escaped (`\]\)\}`).
     """
 
-    separator: str = DEFAULT_CITE_SEPARATOR
+    separator: str = ";"
     r"""separator between citations
     Brackets (`])}`) should be escaped (`\]\)\}`).
     """
 
-    regex: str = DEFAULT_CITE_REGEX_STR
-    """Regex string to find the citation."""
+    regex: str = ""
+    """Regex string to find the *block* of citation (`[@cite1; @cite2]`). 
+    This is to be built automatically based on prefix and postfix.
+    Configuring this is NOT supported yet."""
 
 
 @dataclass
@@ -157,6 +159,24 @@ class BackendConfig:
     """`bibfile` only: List of bibfile paths to load"""
 
 
+def build_cite_regex(postfix, prefix):
+    return f"\\{postfix}([\\w\\W]+?)\\{prefix}"
+
+
+PANDOC_CITE_PRESET: CiteConfig = CiteConfig(
+    preset="pandoc",
+    trigger="@",
+    post_trigger=",",
+    prefix="[",
+    postfix="]",
+    separator=";",
+    regex=build_cite_regex("[", "]"),
+)
+
+
+CITE_PRESETS = {"pandoc": PANDOC_CITE_PRESET}
+
+
 # TODO: Is there a better way to do this?
 EXPECTED_VALUES = {
     "backend_type": ["zotero_api", "bibfile"],
@@ -181,7 +201,7 @@ class BibliTomlConfig:
     completion: CompletionConfig = field(default_factory=lambda: CompletionConfig())
     """See `CompletionConfig`"""
 
-    cite: CiteConfig = field(default_factory=lambda: CiteConfig())
+    cite: CiteConfig = field(default_factory=lambda: CITE_PRESETS[DEFAULT_CITE_PRESET])
     """See `CiteConfig`"""
 
     view: ViewConfig = field(default_factory=lambda: ViewConfig())
@@ -213,11 +233,13 @@ class BibliTomlConfig:
             "doc_format.format", self.completion.doc_format.format
         )
 
-        # Recompute cite regex
-        if (
-            self.cite.prefix != DEFAULT_CITE_PREFIX
-            or self.cite.postfix != DEFAULT_CITE_POSTFIX
-        ):
-            # self.cite.regex = rf"{self.cite.prefix}([A-Za-z_0-9]+(?:\s*{DEFAULT_CITE_SEPARATOR}\s*[A-Za-z_0-9]+)*){self.cite.postfix}"
-            self.cite.regex = rf"{self.cite.prefix}([\w\W]+?){self.cite.postfix}"
+        # Apply preset and user configs
+        if self.cite.preset != DEFAULT_CITE_PRESET:
+            if not CITE_PRESETS.get(self.cite.preset):
+                logger.error(f"Unknown preset {self.cite.preset}")
+                return False
+            self.cite = CITE_PRESETS[self.cite.preset] | self.cite
+
+        # Recompute cite regex to make sure
+        self.cite.regex = build_cite_regex(self.cite.prefix, self.cite.postfix)
         return valid
