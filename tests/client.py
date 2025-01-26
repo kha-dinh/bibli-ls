@@ -18,7 +18,7 @@ class BibliClient(BaseLanguageClient):
             os.path.join(PROJECT_ROOT, "bibli_ls/cli.py"),
             "--log-file",
             os.path.join(self._test_root, "test_lsp.log"),
-            "-v",
+            "-vvv",
         )
 
         response = await self.initialize_async(
