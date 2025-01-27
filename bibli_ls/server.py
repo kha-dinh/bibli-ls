@@ -171,6 +171,7 @@ class BibliLanguageServer(LanguageServer):
                 keys = clean_list(keys)
                 if not keys:
                     continue
+
                 processed_keys = []
                 tmp = []
 
@@ -200,7 +201,7 @@ class BibliLanguageServer(LanguageServer):
                 # Determine which cite is at the cursor
                 # for key, pos in zip(processed_keys, key_pos):
                 for key, pos in zip(processed_keys, key_pos):
-                    if pos <0: 
+                    if pos < 0:
                         pos = 0
                     if DATABASE.find_in_libraries(remove_trigger(key, CONFIG)) != (
                         None,
