@@ -100,7 +100,7 @@ def cite_at_position(
             elif len(split) == 1:
                 tmp.append(config.cite.trigger + split[0])
             else:
-                raise Exception("Parsing error")
+                return None
         processed_keys = tmp
 
         tmp = []

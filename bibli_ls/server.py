@@ -18,6 +18,7 @@ from .database import BibliBibDatabase
 from .utils import (
     build_doc_string,
     cite_at_position,
+    clean_list,
     get_cite_uri,
     remove_trigger,
     show_message,
@@ -165,20 +166,48 @@ class BibliLanguageServer(LanguageServer):
 
         for idx, line in enumerate(document.lines):
             for match in re.finditer(CONFIG.cite.regex, line):
-                # key = match.group(1)
                 (cite_start, cite_end) = match.span(1)
                 keys = match.group(1).split(CONFIG.cite.separator)
-                keys = [k.strip() for k in keys if k.strip()[0] == CONFIG.cite.trigger]
-                key_pos = [line.find(k, cite_start, cite_end) for k in keys]
+                keys = clean_list(keys)
+                if not keys:
+                    continue
+                processed_keys = []
+                tmp = []
 
-                for key, pos in zip(keys, key_pos):
+                # Ignoring the parts before trigger and after post_trigger
+                for k in keys:
+                    split = k.split(CONFIG.cite.trigger)
+                    split = clean_list(split)
+                    if len(split) == 2:
+                        tmp.append(CONFIG.cite.trigger + split[1])
+                    elif len(split) == 1:
+                        tmp.append(CONFIG.cite.trigger + split[0])
+                    else:
+                        continue
+                processed_keys = tmp
+
+                tmp = []
+                for k in processed_keys:
+                    if not CONFIG.cite.post_trigger:
+                        break
+                    split = k.split(CONFIG.cite.post_trigger)
+                    split = clean_list(split)
+                    tmp.append(split[0])
+                processed_keys = tmp
+
+                key_pos = [line.find(k, cite_start, cite_end) for k in processed_keys]
+
+                # Determine which cite is at the cursor
+                # for key, pos in zip(processed_keys, key_pos):
+                for key, pos in zip(processed_keys, key_pos):
+                    if pos <0: 
+                        pos = 0
                     if DATABASE.find_in_libraries(remove_trigger(key, CONFIG)) != (
                         None,
                         None,
                     ):
                         continue
 
-                    (start, end) = match.span(1)
                     message = f'Item "{remove_trigger(key, CONFIG)}" does not exist in library'
                     severity = types.DiagnosticSeverity.Warning
                     diagnostics.append(
@@ -192,6 +221,36 @@ class BibliLanguageServer(LanguageServer):
                         )
                     )
 
+            # for match in re.finditer(CONFIG.cite.regex, line):
+            #     # key = match.group(1)
+            #     (cite_start, cite_end) = match.span(1)
+            #     key = cite_at_position(document, types.Position(idx, cite_start), CONFIG)
+            #
+            #     keys = match.group(1).split(CONFIG.cite.separator)
+            #     keys = [k.strip() for k in keys if k.strip()[0] == CONFIG.cite.trigger]
+            #     key_pos = [line.find(k, cite_start, cite_end) for k in keys]
+            #
+            #     for key, pos in zip(keys, key_pos):
+            #         if DATABASE.find_in_libraries(remove_trigger(key, CONFIG)) != (
+            #             None,
+            #             None,
+            #         ):
+            #             continue
+            #
+            #         (start, end) = match.span(1)
+            #         message = f'Item "{remove_trigger(key, CONFIG)}" does not exist in library'
+            #         severity = types.DiagnosticSeverity.Warning
+            #         diagnostics.append(
+            #             types.Diagnostic(
+            #                 message=message,
+            #                 severity=severity,
+            #                 range=types.Range(
+            #                     start=types.Position(line=idx, character=pos),
+            #                     end=types.Position(line=idx, character=pos + len(key)),
+            #                 ),
+            #             )
+            #         )
+            #
         self.diagnostics[document.uri] = (document.version, diagnostics)
 
 
