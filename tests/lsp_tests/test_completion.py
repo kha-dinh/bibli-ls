@@ -22,7 +22,7 @@ async def test_completion():
     """Test that completion points to the correct entry in bibfile"""
 
     async with BibliClient(TEST_DATA) as client:
-        uri = as_uri(TEST_DATA / "definition_test.md")
+        uri = as_uri(TEST_DATA / "completion_test.md")
 
         actual = await client.text_document_completion_async(
             CompletionParams(
@@ -39,6 +39,16 @@ async def test_completion():
         assert_that(actual.items[1].label, is_("@test2"))
         assert_that(actual.items[2].label, is_("@test3"))
         assert_that(actual.items[3].label, is_("@reference_test"))
+
+
+        actual = await client.text_document_completion_async(
+            CompletionParams(
+                TextDocumentIdentifier(uri),
+                Position(line=3, character=3),
+            )
+        )
+        assert actual
+        assert isinstance(actual, CompletionList)
 
         # Non trigger should not have completion
         actual = await client.text_document_completion_async(
