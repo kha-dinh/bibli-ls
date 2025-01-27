@@ -103,14 +103,11 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
 
         # Register additional trigger characters
         completion_provider = initialize_result.capabilities.completion_provider
-        trigger = CONFIG.cite.trigger
         if completion_provider:
-            if completion_provider.trigger_characters:
-                completion_provider.trigger_characters = list(
-                    completion_provider.trigger_characters
-                ).append(trigger)
-            else:
-                completion_provider.trigger_characters = [trigger]
+            completion_provider.trigger_characters = [
+                CONFIG.cite.trigger,
+                CONFIG.cite.prefix,
+            ]
 
         return initialize_result
 
@@ -127,8 +124,40 @@ class BibliLanguageServer(LanguageServer):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         self.index = {}
         self.diagnostics = {}
+        self.completion_cache = []
 
         super().__init__(*args, **kwargs)
+
+    def rebuild_completion_items(
+        self,
+    ):
+        processed_keys = {}
+        self.completion_cache.clear()
+        for libraries in DATABASE.libraries.values():
+            for lib in libraries:
+                for k, entry in lib.entries_dict.items():
+                    key = CONFIG.cite.trigger + k
+                    text_edits = []
+                    doc_string = build_doc_string(
+                        entry, CONFIG.completion.doc_format, str(lib.path)
+                    )
+
+                    # Avoid showing duplicated entries
+                    if not processed_keys.get(key):
+                        processed_keys[key] = True
+                        self.completion_cache.append(
+                            types.CompletionItem(
+                                key,
+                                insert_text=k,
+                                commit_characters=[CONFIG.cite.postfix],
+                                additional_text_edits=text_edits,
+                                kind=types.CompletionItemKind.Reference,
+                                documentation=types.MarkupContent(
+                                    kind=types.MarkupKind.Markdown,
+                                    value=doc_string,
+                                ),
+                            )
+                        )
 
     def diagnose(self, document: TextDocument):
         global CONFIG
@@ -383,41 +412,34 @@ def completion(
 ) -> Optional[types.CompletionList]:
     """textDocument/completion: Returns completion items."""
 
-    trigger = CONFIG.cite.trigger
-    completion_items = []
-
-    processed_keys = {}
     document_uri = params.text_document.uri
     document = ls.workspace.get_text_document(document_uri)
 
-    for libraries in DATABASE.libraries.values():
-        for lib in libraries:
-            for k, entry in lib.entries_dict.items():
-                key = trigger + k
-                text_edits = []
-                doc_string = build_doc_string(
-                    entry, CONFIG.completion.doc_format, str(lib.path)
-                )
+    # Heuristics to support cancelled completion with trigger.
+    # Even if there is not a trigger, if there is a *kinda* cite at the position,
+    # also trigger completion.
 
-                # Avoid showing duplicated entries
-                if not processed_keys.get(key):
-                    processed_keys[key] = True
-                    completion_items.append(
-                        types.CompletionItem(
-                            key,
-                            insert_text=k,
-                            commit_characters=[CONFIG.cite.postfix],
-                            additional_text_edits=text_edits,
-                            kind=types.CompletionItemKind.Field,
-                            documentation=types.MarkupContent(
-                                kind=types.MarkupKind.Markdown,
-                                value=doc_string,
-                            ),
-                        )
-                    )
+    should_complete = False
 
-    return (
-        types.CompletionList(is_incomplete=False, items=completion_items)
-        if completion_items
-        else None
+    char_at_pos = document.lines[params.position.line][params.position.character - 1]
+    if char_at_pos == CONFIG.cite.trigger:
+        should_complete |= True
+
+    cite = cite_at_position(
+        document,
+        types.Position(params.position.line, params.position.character - 1),
+        CONFIG,
     )
+    if cite:
+        should_complete |= True
+
+    if params.context and params.context.trigger_character == CONFIG.cite.trigger:
+        should_complete |= True
+
+    if not should_complete:
+        return None
+
+    if ls.completion_cache == []:
+        ls.rebuild_completion_items()
+
+    return types.CompletionList(is_incomplete=False, items=ls.completion_cache)
