@@ -17,11 +17,12 @@ from .bibli_config import BibliTomlConfig
 from .database import BibliBibDatabase
 from .utils import (
     build_doc_string,
-    cite_at_position,
-    clean_list,
     get_cite_uri,
-    remove_trigger,
     show_message,
+)
+from .parse import (
+    citekey_at_position,
+    find_cites
 )
 
 logger = logging.getLogger(__name__)
@@ -165,93 +166,31 @@ class BibliLanguageServer(LanguageServer):
         diagnostics = []
 
         for idx, line in enumerate(document.lines):
-            for match in re.finditer(CONFIG.cite.regex, line):
-                (cite_start, cite_end) = match.span(1)
-                keys = match.group(1).split(CONFIG.cite.separator)
-                keys = clean_list(keys)
-                if not keys:
-                    continue
+            cite_matches = find_cites(line, CONFIG.cite)
+            if not cite_matches:
+                continue
+            for match in cite_matches:
+                key = match.group(1)
 
-                processed_keys = []
-                tmp = []
-
-                # Ignoring the parts before trigger and after post_trigger
-                for k in keys:
-                    split = k.split(CONFIG.cite.trigger)
-                    split = clean_list(split)
-                    if len(split) == 2:
-                        tmp.append(CONFIG.cite.trigger + split[1])
-                    elif len(split) == 1:
-                        tmp.append(CONFIG.cite.trigger + split[0])
-                    else:
-                        continue
-                processed_keys = tmp
-
-                tmp = []
-                for k in processed_keys:
-                    if not CONFIG.cite.post_trigger:
-                        break
-                    split = k.split(CONFIG.cite.post_trigger)
-                    split = clean_list(split)
-                    tmp.append(split[0])
-                processed_keys = tmp
-
-                key_pos = [line.find(k, cite_start, cite_end) for k in processed_keys]
-
-                # Determine which cite is at the cursor
-                # for key, pos in zip(processed_keys, key_pos):
-                for key, pos in zip(processed_keys, key_pos):
-                    if pos < 0:
-                        pos = 0
-                    if DATABASE.find_in_libraries(remove_trigger(key, CONFIG)) != (
+                if DATABASE.find_in_libraries(key) != (
                         None,
                         None,
                     ):
-                        continue
+                    continue
 
-                    message = f'Item "{remove_trigger(key, CONFIG)}" does not exist in library'
-                    severity = types.DiagnosticSeverity.Warning
-                    diagnostics.append(
-                        types.Diagnostic(
-                            message=message,
-                            severity=severity,
-                            range=types.Range(
-                                start=types.Position(line=idx, character=pos),
-                                end=types.Position(line=idx, character=pos + len(key)),
-                            ),
-                        )
+                message = f'Item "{key}" does not exist in library'
+                severity = types.DiagnosticSeverity.Warning
+                diagnostics.append(
+                    types.Diagnostic(
+                        message=message,
+                        severity=severity,
+                        range=types.Range(
+                            start=types.Position(line=idx, character=match.start()),
+                            end=types.Position(line=idx, character=match.end()),
+                        ),
                     )
+                )
 
-            # for match in re.finditer(CONFIG.cite.regex, line):
-            #     # key = match.group(1)
-            #     (cite_start, cite_end) = match.span(1)
-            #     key = cite_at_position(document, types.Position(idx, cite_start), CONFIG)
-            #
-            #     keys = match.group(1).split(CONFIG.cite.separator)
-            #     keys = [k.strip() for k in keys if k.strip()[0] == CONFIG.cite.trigger]
-            #     key_pos = [line.find(k, cite_start, cite_end) for k in keys]
-            #
-            #     for key, pos in zip(keys, key_pos):
-            #         if DATABASE.find_in_libraries(remove_trigger(key, CONFIG)) != (
-            #             None,
-            #             None,
-            #         ):
-            #             continue
-            #
-            #         (start, end) = match.span(1)
-            #         message = f'Item "{remove_trigger(key, CONFIG)}" does not exist in library'
-            #         severity = types.DiagnosticSeverity.Warning
-            #         diagnostics.append(
-            #             types.Diagnostic(
-            #                 message=message,
-            #                 severity=severity,
-            #                 range=types.Range(
-            #                     start=types.Position(line=idx, character=pos),
-            #                     end=types.Position(line=idx, character=pos + len(key)),
-            #                 ),
-            #             )
-            #         )
-            #
         self.diagnostics[document.uri] = (document.version, diagnostics)
 
 
@@ -331,13 +270,13 @@ def find_references(ls: BibliLanguageServer, params: types.ReferenceParams):
         return
 
     document = ls.workspace.get_text_document(params.text_document.uri)
-    cite = cite_at_position(document, params.position, CONFIG)
+    cite = citekey_at_position(document, params.position, CONFIG.cite)
 
     if not cite:
         return
 
-    # Include prefix for more accuracy
-    rg = Ripgrepy(cite, root_path)
+    # Include trigger for better accuracy
+    rg = Ripgrepy(CONFIG.cite.trigger + cite, root_path)
     result = rg.with_filename().json().run().as_dict
     references = []
 
@@ -374,15 +313,15 @@ def goto_definition(ls: BibliLanguageServer, params: types.DefinitionParams):
 
     document = ls.workspace.get_text_document(params.text_document.uri)
 
-    cite = cite_at_position(document, params.position, CONFIG)
+    cite = citekey_at_position(document, params.position, CONFIG.cite)
     if not cite:
         return []
 
-    (entry, library) = DATABASE.find_in_libraries(remove_trigger(cite, CONFIG))
+    (entry, library) = DATABASE.find_in_libraries(cite)
     if entry and library and library.path is not None:
         from ripgrepy import Ripgrepy
 
-        rg = Ripgrepy(remove_trigger(cite, CONFIG), str(library.path))
+        rg = Ripgrepy(cite, str(library.path))
         result = rg.with_filename().json().run().as_dict
         for res in result:
             if res["type"] == "match":
@@ -410,7 +349,7 @@ def goto_implementation(ls: BibliLanguageServer, params: types.DefinitionParams)
     """textDocument/definition: Jump to an object's type definition."""
     document = ls.workspace.get_text_document(params.text_document.uri)
 
-    cite = cite_at_position(document, params.position, CONFIG)
+    cite = citekey_at_position(document, params.position, CONFIG.cite)
     if not cite:
         return
 
@@ -440,11 +379,11 @@ def hover(ls: BibliLanguageServer, params: types.HoverParams):
     document_uri = params.text_document.uri
     document = ls.workspace.get_text_document(document_uri)
 
-    cite = cite_at_position(document, params.position, CONFIG)
+    cite = citekey_at_position(document, params.position, CONFIG.cite)
     if not cite:
         return None
 
-    (entry, library) = DATABASE.find_in_libraries(remove_trigger(cite, CONFIG))
+    (entry, library) = DATABASE.find_in_libraries(cite)
     if entry and library and library.path:
         hover_text = build_doc_string(entry, CONFIG.hover.doc_format, str(library.path))
 
@@ -485,10 +424,10 @@ def completion(
     if char_at_pos == CONFIG.cite.trigger:
         should_complete |= True
 
-    cite = cite_at_position(
+    cite = citekey_at_position(
         document,
         types.Position(params.position.line, params.position.character - 1),
-        CONFIG,
+        CONFIG.cite,
     )
     if cite:
         should_complete |= True
