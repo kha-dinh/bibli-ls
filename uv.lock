@@ -15,7 +15,7 @@ wheels = [
 
 [[package]]
 name = "bibli-ls"
-version = "0.1.7.0"
+version = "0.1.7.2"
 source = { editable = "." }
 dependencies = [
     { name = "bibtexparser" },
