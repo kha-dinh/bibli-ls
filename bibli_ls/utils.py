@@ -47,7 +47,7 @@ def get_item_attachments_bbt(cite: str):
 def get_cite_uri(
     db: BibliBibDatabase, cite: str, config: BibliTomlConfig
 ) -> str | None:
-    (entry, _) = db.find_in_libraries(remove_trigger(cite, config))
+    (entry, _) = db.find_in_libraries(cite)
 
     if not entry:
         return None
@@ -72,56 +72,6 @@ def get_cite_uri(
 def remove_trigger(cite: str, config: BibliTomlConfig):
     return cite.replace(config.cite.trigger, "")
 
-
-# Clear any empty components from the list
-def clean_list(input: List):
-    return [k.strip() for k in input if k.strip()]
-
-
-def cite_at_position(
-    doc: TextDocument, position: Position, config: BibliTomlConfig
-) -> str | None:
-    line = doc.lines[position.line]
-    assert config.cite.regex
-
-    for match in re.finditer(config.cite.regex, line):
-        (cite_start, cite_end) = match.span(1)
-        keys = match.group(1).split(config.cite.separator)
-        keys = clean_list(keys)
-        processed_keys = []
-        tmp = []
-
-        # Ignoring the parts before trigger and after post_trigger
-        for k in keys:
-            split = k.split(config.cite.trigger)
-            split = clean_list(split)
-            if len(split) == 2:
-                tmp.append(config.cite.trigger + split[1])
-            elif len(split) == 1:
-                tmp.append(config.cite.trigger + split[0])
-            else:
-                return None
-        processed_keys = tmp
-
-        tmp = []
-        for k in processed_keys:
-            if not config.cite.post_trigger:
-                break
-            split = k.split(config.cite.post_trigger)
-            split = clean_list(split)
-            tmp.append(split[0])
-        processed_keys = tmp
-
-        logger.debug(f"Found cites {processed_keys} at pos {position}")
-        key_pos = [line.find(k, cite_start, cite_end) for k in processed_keys]
-
-        # Determine which cite is at the cursor
-        for k, pos in zip(processed_keys, key_pos):
-            if position.character >= pos and position.character < pos + len(k):
-                logger.debug(f"Returning {k.strip()}")
-                return k.strip()
-
-    return None
 
 
 def preprocess_bib_entry(entry: Entry, config: DocFormatingConfig):
