@@ -421,7 +421,11 @@ def completion(
     should_complete = False
 
     char_at_pos = document.lines[params.position.line][params.position.character - 1]
-    if char_at_pos == CONFIG.cite.trigger:
+    if (
+        char_at_pos == CONFIG.cite.trigger
+        or char_at_pos == CONFIG.cite.prefix
+        or char_at_pos == CONFIG.cite.separator
+    ):
         should_complete |= True
 
     cite = citekey_at_position(
@@ -432,7 +436,10 @@ def completion(
     if cite:
         should_complete |= True
 
-    if params.context and params.context.trigger_character == CONFIG.cite.trigger:
+    if params.context and (
+        params.context.trigger_character == CONFIG.cite.trigger
+        or params.context.trigger_character == CONFIG.cite.prefix
+    ):
         should_complete |= True
 
     if not should_complete:

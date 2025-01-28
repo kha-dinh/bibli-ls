@@ -15,7 +15,6 @@ def clean_list(input: List[str]):
 
 
 def find_cites(text: str, cite_config: CiteConfig) -> List[Match[str]] | None:
-
     trigger = cite_config.trigger
     email_positions = [
         (m.start(), m.end()) for m in re.finditer(r"\b[\w\.-]+@[\w\.-]+\.\w+\b", text)
@@ -44,7 +43,7 @@ def citekey_at_position(
 
     for match in cite_matches:
         key = match.group(1)
-        if position.character >= match.start() and position.character <= match.end():
+        if position.character >= match.start() and position.character < match.end():
             logger.debug(f"Returning {key}")
             return key
 
