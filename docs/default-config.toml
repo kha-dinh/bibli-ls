@@ -37,7 +37,6 @@ post_trigger = ","
 prefix = "["
 postfix = "]"
 separator = ";"
-regex = "\\[([\\w\\W]+?)\\]"
 
 [view]
 viewer = "browser"

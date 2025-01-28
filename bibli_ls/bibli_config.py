@@ -95,25 +95,14 @@ class CiteConfig(Unionable):
     """Trigger completion and also marks the beginning of citation key."""
 
     prefix: str = "["
-    r"""
-    Prefix to begin the citation (must be updated if trigger is updated). 
-    Brackets (`([{`) should be escaped (`\(\[\{`).
-    """
+    """Prefix to begin a block of citation."""
 
     postfix: str = "]"
-    r"""Prefix to begin the citation.
-    Brackets (`])}`) should be escaped (`\]\)\}`).
-    """
+    """End of the citation block."""
 
     separator: str = ";"
-    r"""separator between citations
-    Brackets (`])}`) should be escaped (`\]\)\}`).
-    """
+    """separator between citations"""
 
-    regex: str = ""
-    """Regex string to find the *block* of citation (`[@cite1; @cite2]`). 
-    This is to be built automatically based on prefix and postfix.
-    Configuring this is NOT supported yet."""
 
 
 @dataclass
@@ -159,8 +148,6 @@ class BackendConfig:
     """`bibfile` only: List of bibfile paths to load"""
 
 
-def build_cite_regex(postfix, prefix):
-    return f"\\{postfix}([\\w\\W]+?)\\{prefix}"
 
 
 PANDOC_CITE_PRESET: CiteConfig = CiteConfig(
@@ -170,7 +157,6 @@ PANDOC_CITE_PRESET: CiteConfig = CiteConfig(
     prefix="[",
     postfix="]",
     separator=";",
-    regex=build_cite_regex("[", "]"),
 )
 
 
@@ -240,6 +226,4 @@ class BibliTomlConfig:
                 return False
             self.cite = CITE_PRESETS[self.cite.preset] | self.cite
 
-        # Recompute cite regex to make sure
-        self.cite.regex = build_cite_regex(self.cite.prefix, self.cite.postfix)
         return valid

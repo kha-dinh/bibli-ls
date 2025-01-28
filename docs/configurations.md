@@ -21,7 +21,6 @@
     * [prefix](#bibli_config.CiteConfig.prefix)
     * [postfix](#bibli_config.CiteConfig.postfix)
     * [separator](#bibli_config.CiteConfig.separator)
-    * [regex](#bibli_config.CiteConfig.regex)
   * [HoverConfig](#bibli_config.HoverConfig)
     * [doc\_format](#bibli_config.HoverConfig.doc_format)
   * [CompletionConfig](#bibli_config.CompletionConfig)
@@ -227,8 +226,7 @@ Trigger completion and also marks the beginning of citation key.
 prefix = "["
 ```
 
-Prefix to begin the citation (must be updated if trigger is updated).
-Brackets (`([{`) should be escaped (`\(\[\{`).
+Prefix to begin a block of citation.
 
 <a id="bibli_config.CiteConfig.postfix"></a>
 
@@ -238,8 +236,7 @@ Brackets (`([{`) should be escaped (`\(\[\{`).
 postfix = "]"
 ```
 
-Prefix to begin the citation.
-Brackets (`])}`) should be escaped (`\]\)\}`).
+End of the citation block.
 
 <a id="bibli_config.CiteConfig.separator"></a>
 
@@ -250,19 +247,6 @@ separator = ";"
 ```
 
 separator between citations
-Brackets (`])}`) should be escaped (`\]\)\}`).
-
-<a id="bibli_config.CiteConfig.regex"></a>
-
-#### regex: `str`
-
-```python
-regex = ""
-```
-
-Regex string to find the *block* of citation (`[@cite1; @cite2]`).
-This is to be built automatically based on prefix and postfix.
-Configuring this is NOT supported yet.
 
 <a id="bibli_config.HoverConfig"></a>
 
