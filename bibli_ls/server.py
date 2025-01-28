@@ -1,6 +1,5 @@
 import logging
 import os
-import re
 from pathlib import Path
 from typing import Any, Optional
 
@@ -20,10 +19,7 @@ from .utils import (
     get_cite_uri,
     show_message,
 )
-from .parse import (
-    citekey_at_position,
-    find_cites
-)
+from .parse import citekey_at_position, find_cites
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +146,7 @@ class BibliLanguageServer(LanguageServer):
                         self.completion_cache.append(
                             types.CompletionItem(
                                 key,
-                                insert_text=k,
+                                insert_text=key,
                                 commit_characters=[CONFIG.cite.postfix],
                                 additional_text_edits=text_edits,
                                 kind=types.CompletionItemKind.Reference,
@@ -173,9 +169,9 @@ class BibliLanguageServer(LanguageServer):
                 key = match.group(1)
 
                 if DATABASE.find_in_libraries(key) != (
-                        None,
-                        None,
-                    ):
+                    None,
+                    None,
+                ):
                     continue
 
                 message = f'Item "{key}" does not exist in library'
@@ -213,7 +209,6 @@ def reload_all(ls: BibliLanguageServer, *args):
 )
 def code_actions(params: types.CodeActionParams):
     items = []
-    document_uri = params.text_document.uri
 
     items.append(
         types.CodeAction(
@@ -419,7 +414,6 @@ def completion(
     # also trigger completion.
 
     should_complete = False
-
     char_at_pos = document.lines[params.position.line][params.position.character - 1]
     if (
         char_at_pos == CONFIG.cite.trigger

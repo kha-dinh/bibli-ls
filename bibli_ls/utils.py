@@ -68,12 +68,6 @@ def get_cite_uri(
             uri = get_item_attachments_bbt(cite)[0]
     return uri
 
-
-def remove_trigger(cite: str, config: BibliTomlConfig):
-    return cite.replace(config.cite.trigger, "")
-
-
-
 def preprocess_bib_entry(entry: Entry, config: DocFormatingConfig):
     replace_list = ["{{", "}}", "\\vphantom", "\\{", "\\}"]
     for f in entry.fields:
