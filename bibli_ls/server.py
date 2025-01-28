@@ -105,6 +105,7 @@ class BibliLanguageServerProtocol(LanguageServerProtocol):
             completion_provider.trigger_characters = [
                 CONFIG.cite.trigger,
                 CONFIG.cite.prefix,
+                CONFIG.cite.separator,
             ]
 
         return initialize_result
@@ -147,7 +148,10 @@ class BibliLanguageServer(LanguageServer):
                             types.CompletionItem(
                                 key,
                                 insert_text=key,
-                                commit_characters=[CONFIG.cite.postfix],
+                                commit_characters=[
+                                    CONFIG.cite.postfix,
+                                    CONFIG.cite.separator,
+                                ],
                                 additional_text_edits=text_edits,
                                 kind=types.CompletionItemKind.Reference,
                                 documentation=types.MarkupContent(
@@ -433,6 +437,7 @@ def completion(
     if params.context and (
         params.context.trigger_character == CONFIG.cite.trigger
         or params.context.trigger_character == CONFIG.cite.prefix
+        or params.context.trigger_character == CONFIG.cite.separator
     ):
         should_complete |= True
 
