@@ -30,12 +30,17 @@
     * [library\_type](#bibli_config.BackendConfig.library_type)
     * [api\_key](#bibli_config.BackendConfig.api_key)
     * [bibfiles](#bibli_config.BackendConfig.bibfiles)
+  * [NoteConfig](#bibli_config.NoteConfig)
+    * [extension](#bibli_config.NoteConfig.extension)
+    * [directory](#bibli_config.NoteConfig.directory)
+    * [filename](#bibli_config.NoteConfig.filename)
   * [BibliTomlConfig](#bibli_config.BibliTomlConfig)
     * [backends](#bibli_config.BibliTomlConfig.backends)
     * [hover](#bibli_config.BibliTomlConfig.hover)
     * [completion](#bibli_config.BibliTomlConfig.completion)
     * [cite](#bibli_config.BibliTomlConfig.cite)
     * [view](#bibli_config.BibliTomlConfig.view)
+    * [note](#bibli_config.BibliTomlConfig.note)
 
 <a id="bibli_config"></a>
 
@@ -341,6 +346,47 @@ bibfiles = field(default_factory=lambda: [])
 
 `bibfile` only: List of bibfile paths to load
 
+<a id="bibli_config.NoteConfig"></a>
+
+## NoteConfig Objects
+
+```python
+@dataclass
+class NoteConfig(Unionable)
+```
+
+Configs for notes.
+
+<a id="bibli_config.NoteConfig.extension"></a>
+
+#### extension: `str`
+
+```python
+extension = ".md"
+```
+
+Note extension.
+
+<a id="bibli_config.NoteConfig.directory"></a>
+
+#### directory: `str`
+
+```python
+directory = "./notes"
+```
+
+Where to store notes.
+
+<a id="bibli_config.NoteConfig.filename"></a>
+
+#### filename: `str`
+
+```python
+filename = "{citekey}"
+```
+
+Template to generate the note's filename.
+
 <a id="bibli_config.BibliTomlConfig"></a>
 
 ## BibliTomlConfig Objects
@@ -400,5 +446,15 @@ See `CiteConfig`
 view = field(default_factory=lambda: ViewConfig())
 ```
 
-See `ViewingConfig`
+See `ViewConfig`
+
+<a id="bibli_config.BibliTomlConfig.note"></a>
+
+#### note: `NoteConfig`
+
+```python
+note = field(default_factory=lambda: NoteConfig())
+```
+
+See `NoteConfig`
 

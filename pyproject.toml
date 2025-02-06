@@ -64,4 +64,9 @@ render_typehint_in_data_header = true
 render_toc = true
 
 [dependency-groups]
-dev = ["pytest>=8.3.3", "pytest-asyncio", "pyhamcrest==2.1.0"]
+dev = [
+  "pytest>=8.3.3",
+  "pytest-asyncio",
+  "pyhamcrest==2.1.0",
+  "pydoc-markdown==4.8.2",
+]

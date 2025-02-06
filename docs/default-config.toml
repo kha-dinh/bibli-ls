@@ -41,3 +41,8 @@ separator = ";"
 [view]
 viewer = "browser"
 
+[note]
+extension = ".md"
+directory = "./notes"
+filename = "{citekey}"
+
