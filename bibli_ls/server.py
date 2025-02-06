@@ -17,6 +17,7 @@ from .database import BibliBibDatabase
 from .utils import (
     build_doc_string,
     get_cite_uri,
+    get_note_uri,
     show_message,
 )
 from .parse import citekey_at_position, find_cites
@@ -360,6 +361,51 @@ def goto_implementation(ls: BibliLanguageServer, params: types.DefinitionParams)
         )
 
     return None
+
+
+@SERVER.feature(types.TEXT_DOCUMENT_DECLARATION)
+def find_declaration(ls: BibliLanguageServer, params: types.DeclarationParams):
+    """textDocument/declaration: Open note"""
+
+    document_uri = params.text_document.uri
+    document = ls.workspace.get_text_document(document_uri)
+    cite = citekey_at_position(document, params.position, CONFIG.cite)
+
+    if not cite:
+        return
+
+    uri = get_note_uri(ls, cite, CONFIG.note)
+
+    (entry, _) = DATABASE.find_in_libraries(cite)
+    if not entry:
+        return
+
+    note_document = ls.workspace.get_text_document(uri)
+
+    # Initialize the content if file not exist
+    # TODO: Add configurable new note template & frontmatter
+    # FIXME: If the file does not exists (user did not save), the new content will be
+    # appended before the existing one.
+    if not os.path.exists(note_document.path):
+        ws_edit = types.TextDocumentEdit(
+            types.OptionalVersionedTextDocumentIdentifier(uri),
+            [
+                types.TextEdit(
+                    types.Range(types.Position(0, 0), types.Position(0, 0)),
+                    "# {title}".format(title=(entry.__getitem__("title")) or "Unknown"),
+                )
+            ],
+        )
+
+        ls.workspace_apply_edit(
+            types.ApplyWorkspaceEditParams(
+                types.WorkspaceEdit(document_changes=[ws_edit])
+            )
+        )
+
+    return types.Location(
+        note_document.uri, types.Range(types.Position(0, 0), types.Position(0, 0))
+    )
 
 
 @SERVER.feature(types.TEXT_DOCUMENT_DIAGNOSTIC)
