@@ -1,18 +1,25 @@
-<h3 align="center">
+<div align="center">
   <img
     src="https://raw.githubusercontent.com/kha-dinh/bibli-ls/main/docs/logo.jpeg"
-    width="100"
+    width="300"
     alt="Logo"
-  /><br />
-</h3>
+  />
+<h1>Bibli Language Server</h1> 
 
-# Bibli Language Server
 
-A [Language Server](https://microsoft.github.io/language-server-protocol/) that brings bibliographies into your notes.
+A configurable, editor-agnostic, format-agnostic [^wip] [Language Server](https://microsoft.github.io/language-server-protocol/) that brings bibliographies into your notes.
+
+[^wip]: This is a [work-in-progress](https://github.com/kha-dinh/bibli-ls/issues/9).
+
+![image](https://github.com/user-attachments/assets/08238b8b-9516-4efa-9d03-ebfc182383cf)
+
 
 [![image-version](https://img.shields.io/pypi/v/bibli-ls.svg)](https://python.org/pypi/bibli-ls)
 [![image-license](https://img.shields.io/pypi/l/bibli-ls.svg)](https://python.org/pypi/bibli-ls)
-[![image-python-versions](https://img.shields.io/badge/python-%3E=3.8-blue)](https://python.org/pypi/bibli-ls)
+[![image-python-versions](https://img.shields.io/badge/python-%3E=3.12-blue)](https://python.org/pypi/bibli-ls)
+</div>
+
+<br>
 
 ## Supported LSP capabilities
 
