@@ -104,7 +104,6 @@ class CiteConfig(Unionable):
     """separator between citations"""
 
 
-
 @dataclass
 class HoverConfig:
     """
@@ -148,6 +147,20 @@ class BackendConfig:
     """`bibfile` only: List of bibfile paths to load"""
 
 
+@dataclass
+class NoteConfig(Unionable):
+    """
+    Configs for notes.
+    """
+
+    extension: str = ".md"
+    """Note extension."""
+
+    directory: str = "./notes"
+    """Where to store notes."""
+
+    filename: str = "{citekey}"
+    """Template to generate the note's filename."""
 
 
 PANDOC_CITE_PRESET: CiteConfig = CiteConfig(
@@ -191,7 +204,10 @@ class BibliTomlConfig:
     """See `CiteConfig`"""
 
     view: ViewConfig = field(default_factory=lambda: ViewConfig())
-    """See `ViewingConfig`"""
+    """See `ViewConfig`"""
+
+    note: NoteConfig = field(default_factory=lambda: NoteConfig())
+    """See `NoteConfig`"""
 
     def check_expected(self, field, value) -> bool:
         if value not in EXPECTED_VALUES[field]:
