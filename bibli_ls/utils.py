@@ -1,3 +1,4 @@
+from os import path
 import re
 from typing import List
 
@@ -13,7 +14,7 @@ import requests
 from bibli_ls.database import BibliBibDatabase
 
 
-from .bibli_config import BibliTomlConfig, DocFormatingConfig
+from .bibli_config import BibliTomlConfig, DocFormatingConfig, NoteConfig
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,19 @@ def get_item_attachments_bbt(cite: str):
     return attachments
 
 
+def get_note_uri(ls: LanguageServer, cite: str, config: NoteConfig):
+    format_dict = {"citekey": cite}
+
+    root_path = ""
+    if ls.workspace.root_path:
+        root_path = ls.workspace.root_path
+    return "file://" + path.join(
+        root_path,
+        config.directory,
+        config.filename.format(**format_dict) + config.extension,
+    )
+
+
 def get_cite_uri(
     db: BibliBibDatabase, cite: str, config: BibliTomlConfig
 ) -> str | None:
@@ -67,6 +81,7 @@ def get_cite_uri(
             # - https://github.com/retorquere/zotero-better-bibtex/issues/1347
             uri = get_item_attachments_bbt(cite)[0]
     return uri
+
 
 def preprocess_bib_entry(entry: Entry, config: DocFormatingConfig):
     replace_list = ["{{", "}}", "\\vphantom", "\\{", "\\}"]
