@@ -87,19 +87,19 @@ We support openning the `url` in browser, or openning PDF attachment (for zotero
 Automatic configuration through [lspconfig](<>) has yet to be supported. To enable bibli-ls, put the following code in your Neovim config.
 
 ```lua
-vim.lsp.config('bibli_ls', {
-    cmd = { "bibli_ls" },
-    filetypes = { "markdown", "quarto" },
-    root_markers = { ".bibli.toml" },
-    -- Optional: visit the URL of the citation with LSP DocumentImplementation
-    on_attach = function(client, bufnr)
-        vim.keymap.set({ "n" }, "<cr>", function()
-            vim.lsp.buf.implementation()
-        end)
-    end,
+vim.lsp.config("bibli_ls", {
+	cmd = { "bibli_ls" },
+	filetypes = { "markdown", "quarto" },
+	root_markers = { ".bibli.toml" },
+	-- Optional: visit the URL of the citation with LSP DocumentImplementation
+	on_attach = function(client, bufnr)
+		vim.keymap.set({ "n" }, "<cr>", function()
+			vim.lsp.buf.implementation()
+		end)
+	end,
 })
 
-vim.lsp.enable('bibli_ls')
+vim.lsp.enable("bibli_ls")
 ```
 
 ### Helix configuration
